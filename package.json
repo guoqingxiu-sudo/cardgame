@@ -1,0 +1,13 @@
+{
+  "name": "wuxing-cardgame-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Five-element realtime card battle demo with online lobby",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

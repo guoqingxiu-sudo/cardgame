@@ -517,7 +517,7 @@ const CARD_POOL = [
   }
 ];
 
-const DEFAULT_DECK_IDS = ["c1", "c1", "c2", "c2", "c3", "c4", "c5", "c6", "c8", "c9", "c10", "c11", "c17", "c18", "c19", "c12", "c13", "c14", "c12", "c14", "c23", "c24", "c25", "c26", "c27", "c28", "c29", "c23", "c25", "c30", "c31", "c32", "c33", "c34", "c35", "c36", "c37", "c38", "c39", "c40", "c41", "c42", "c43", "c44", "c45", "c46"];
+const DEFAULT_DECK_IDS = ["c1", "c2", "c3", "c4", "c5", "c6", "c8", "c9", "c10", "c11", "c17", "c18", "c19", "c12", "c13", "c14", "c23", "c24", "c25", "c26", "c27", "c28", "c29", "c30", "c31", "c32", "c33", "c34", "c35", "c36", "c37", "c38", "c39", "c40", "c41", "c42", "c43", "c44", "c45", "c46"];
 const DECK_CACHE_KEY = "wuxing_battle_demo_deck_v1";
 
 const state = {
@@ -543,6 +543,11 @@ const state = {
   pendingCast: false,
   dragCardIndex: null,
   pointerDragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  dragStarted: false,
+  suppressCardClick: false,
+  armedCardIndex: null,
   dragPreview: {
     active: false,
     fromX: 0,
@@ -738,16 +743,42 @@ function setPrepNotice(text = "", warn = false) {
   el.prepNotice.classList.toggle("warn", !!(warn && text));
 }
 
+function isBattleActive() {
+  return el.battleScreen?.classList.contains("active") && state.running;
+}
+
+function setArmedCard(index) {
+  const next = Number.isInteger(index) ? index : null;
+  if (next === state.armedCardIndex) {
+    state.armedCardIndex = null;
+  } else {
+    state.armedCardIndex = next;
+  }
+  renderCards();
+}
+
+function clearArmedCard() {
+  if (state.armedCardIndex === null) return;
+  state.armedCardIndex = null;
+  renderCards();
+}
+
 function updateStartButtonState() {
   if (!el.btnStart) return;
   const deckCount = getDeckCount();
   const minNeed = state.deckBuilder.minSize;
+  const maxLimit = state.deckBuilder.maxSize;
   let text = "进入战斗";
   let notice = "";
   let warn = false;
+  let disabled = false;
 
   if (net.mode === "local") {
-    if (deckCount < minNeed) {
+    if (deckCount > maxLimit) {
+      notice = `卡组超限：当前 ${deckCount} 张，最多 ${maxLimit} 张。`;
+      warn = true;
+      disabled = true;
+    } else if (deckCount < minNeed) {
       notice = `卡组不足：当前 ${deckCount} 张，至少需要 ${minNeed} 张。`;
       warn = true;
     }
@@ -757,6 +788,10 @@ function updateStartButtonState() {
   } else if (net.role !== "host") {
     text = net.myReady ? "取消准备" : "准备";
     notice = net.myReady ? "已准备，等待房主开始战斗。" : "点击准备，等待房主开始战斗。";
+  } else if (deckCount > maxLimit) {
+    notice = `卡组超限：当前 ${deckCount} 张，最多 ${maxLimit} 张。`;
+    warn = true;
+    disabled = true;
   } else if (deckCount < minNeed) {
     notice = `卡组不足：当前 ${deckCount} 张，至少需要 ${minNeed} 张。`;
     warn = true;
@@ -770,7 +805,7 @@ function updateStartButtonState() {
   }
 
   el.btnStart.textContent = text;
-  el.btnStart.disabled = false;
+  el.btnStart.disabled = disabled;
   setPrepNotice(notice, warn);
 }
 
@@ -1289,11 +1324,11 @@ function expandDeckIdsFromCounts(counts) {
 }
 
 function getDeckCount() {
-  return expandDeckIdsFromCounts(state.deckBuilder.counts).length;
+  return Object.values(state.deckBuilder.counts || {}).reduce((sum, n) => sum + Math.max(0, Math.floor(n || 0)), 0);
 }
 
 function setDeckToDefault() {
-  state.deckBuilder.counts = buildCountsFromIds(DEFAULT_DECK_IDS);
+  state.deckBuilder.counts = clampDeckCountsToMax(buildCountsFromIds(DEFAULT_DECK_IDS));
 }
 
 function classifyCardProfile(card) {
@@ -1339,6 +1374,24 @@ function sanitizeDeckCounts(rawCounts) {
     const n = Math.max(0, Math.min(state.deckBuilder.maxPerCard, Math.floor(Number(count) || 0)));
     if (n > 0) out[id] = n;
   });
+  return clampDeckCountsToMax(out);
+}
+
+function clampDeckCountsToMax(counts) {
+  const out = { ...(counts || {}) };
+  let total = Object.values(out).reduce((sum, n) => sum + Math.max(0, Math.floor(n || 0)), 0);
+  if (total <= state.deckBuilder.maxSize) return out;
+  const order = CARD_POOL.map((c) => c.id);
+  for (let i = order.length - 1; i >= 0 && total > state.deckBuilder.maxSize; i--) {
+    const id = order[i];
+    let n = Math.max(0, Math.floor(out[id] || 0));
+    while (n > 0 && total > state.deckBuilder.maxSize) {
+      n -= 1;
+      total -= 1;
+    }
+    if (n > 0) out[id] = n;
+    else delete out[id];
+  }
   return out;
 }
 
@@ -1872,11 +1925,15 @@ function processSummons(dt) {
 function regenerateResources(side, dt) {
   const actor = side === "my" ? state.my : state.enemy;
   const owner = side === "my" ? "me" : "enemy";
+  const myHp = side === "my" ? state.myHp : state.enemyHp;
+  const oppHp = side === "my" ? state.enemyHp : state.myHp;
+  const comeback = Math.max(0, Math.min(0.18, (oppHp - myHp) / 100 * 0.18));
   const eventBoost = state.battlefieldEvent.id === "surge" ? 1.35 : 1;
+  const comebackBoost = 1 + comeback;
   ELEMENTS.forEach((e) => {
     const towerBoost = getGeneratorBonusForElement(owner, e);
     const r = actor.resources[e];
-    r.current = Math.min(r.max, r.current + (actor.regen[e] + towerBoost) * dt * eventBoost);
+    r.current = Math.min(r.max, r.current + (actor.regen[e] + towerBoost) * dt * eventBoost * comebackBoost);
   });
 }
 
@@ -2391,6 +2448,7 @@ function playCardFromHand(index, triggerBtn, target = { type: "lane", lane: 1, p
     logLine(`资源不足，无法使用【${card.name}】。`);
     return;
   }
+  if (state.armedCardIndex === index) clearArmedCard();
   state.pendingCast = true;
   const cardNode = triggerBtn?.closest(".card");
   if (triggerBtn) triggerBtn.classList.add("cast-flash");
@@ -2449,6 +2507,7 @@ function consumeDraggedCard(target, dragEvent = null) {
     if (raw !== "") idx = Number(raw);
   }
   state.dragCardIndex = null;
+  if (idx === state.armedCardIndex) clearArmedCard();
   clearDragPreview();
   if (idx === null || idx === undefined || Number.isNaN(idx)) return;
   playCardFromHand(Number(idx), null, target);
@@ -2530,6 +2589,37 @@ function getDropTargetAtPoint(clientX, clientY) {
   return null;
 }
 
+function getLaneTargetFromEvent(ev) {
+  const hit = ev.target;
+  if (!hit) return null;
+  const slotEl = hit.closest(".drop-slot");
+  if (slotEl) {
+    const lane = Number(slotEl.dataset.lane);
+    const slot = Number(slotEl.dataset.slot);
+    return { type: "lane", lane, slot, pos: slotToPos(slot) };
+  }
+  const laneEl = hit.closest(".drop-lane");
+  if (laneEl) {
+    const rect = laneEl.getBoundingClientRect();
+    const pos = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100));
+    const slot = posToSlot(pos);
+    const lane = Number(laneEl.dataset.lane);
+    return { type: "lane", lane, slot, pos: slotToPos(slot) };
+  }
+  return null;
+}
+
+function tryCastArmedTarget(target) {
+  if (!isBattleActive()) return;
+  const idx = state.armedCardIndex;
+  if (idx === null || idx === undefined) return;
+  if (!state.my.hand[idx]) {
+    clearArmedCard();
+    return;
+  }
+  playCardFromHand(idx, null, target);
+}
+
 function markDropHover(target) {
   clearDropHighlights();
   if (!target) return;
@@ -2548,18 +2638,32 @@ function beginPointerDrag(index, cardEl, ev) {
   if (cardEl.classList.contains("drag-disabled")) return;
   state.dragCardIndex = index;
   state.pointerDragging = true;
-  cardEl.classList.add("dragging-card");
-  const rect = cardEl.getBoundingClientRect();
-  state.dragPreview.active = true;
-  state.dragPreview.fromX = rect.left + rect.width / 2;
-  state.dragPreview.fromY = rect.top + rect.height / 2;
-  updateDragPreview(ev.clientX, ev.clientY, "");
+  state.dragStarted = false;
+  state.dragStartX = ev.clientX;
+  state.dragStartY = ev.clientY;
+  state.dragPreview.active = false;
+  state.dragPreview.fromX = 0;
+  state.dragPreview.fromY = 0;
   document.body.classList.add("dragging-mode");
   ev.preventDefault();
 }
 
 function movePointerDrag(ev) {
   if (state.dragCardIndex === null || !state.pointerDragging) return;
+  if (!state.dragStarted) {
+    const dx = ev.clientX - state.dragStartX;
+    const dy = ev.clientY - state.dragStartY;
+    if (Math.hypot(dx, dy) < 6) return;
+    state.dragStarted = true;
+    const cardEl = el.hand?.querySelector(`.card[data-idx="${state.dragCardIndex}"]`);
+    if (cardEl) cardEl.classList.add("dragging-card");
+    if (cardEl) {
+      const rect = cardEl.getBoundingClientRect();
+      state.dragPreview.active = true;
+      state.dragPreview.fromX = rect.left + rect.width / 2;
+      state.dragPreview.fromY = rect.top + rect.height / 2;
+    }
+  }
   const target = getDropTargetAtPoint(ev.clientX, ev.clientY);
   markDropHover(target);
   if (target?.type === "lane") {
@@ -2574,14 +2678,24 @@ function movePointerDrag(ev) {
 
 function endPointerDrag(ev) {
   if (state.dragCardIndex === null || !state.pointerDragging) return;
-  const target = getDropTargetAtPoint(ev.clientX, ev.clientY);
-  if (target) {
-    consumeDraggedCard(target, null);
+  if (state.dragStarted) {
+    const target = getDropTargetAtPoint(ev.clientX, ev.clientY);
+    if (target) {
+      consumeDraggedCard(target, null);
+    } else {
+      state.dragCardIndex = null;
+      clearDragPreview();
+    }
+    state.suppressCardClick = true;
+    setTimeout(() => {
+      state.suppressCardClick = false;
+    }, 0);
   } else {
     state.dragCardIndex = null;
     clearDragPreview();
   }
   state.pointerDragging = false;
+  state.dragStarted = false;
   document.body.classList.remove("dragging-mode");
   clearDropHighlights();
 }
@@ -3149,7 +3263,8 @@ function renderDeckBuilder() {
   const total = getDeckCount();
   if (el.deckCount) {
     el.deckCount.textContent = `${total} / ${state.deckBuilder.maxSize}（最少 ${state.deckBuilder.minSize}）`;
-    el.deckCount.className = `deck-count ${total >= state.deckBuilder.minSize ? "ok" : "warn"}`;
+    const ok = total >= state.deckBuilder.minSize && total <= state.deckBuilder.maxSize;
+    el.deckCount.className = `deck-count ${ok ? "ok" : "warn"}`;
   }
   updateStartButtonState();
 
@@ -3231,7 +3346,7 @@ function renderCards() {
       .join(" ");
 
     return `
-      <div class="card ${c.element} ${c.type} ${affordable ? "drag-ready" : "drag-disabled"}" data-idx="${i}" draggable="false">
+      <div class="card ${c.element} ${c.type} ${affordable ? "drag-ready" : "drag-disabled"} ${state.armedCardIndex === i ? "armed-card" : ""}" data-idx="${i}" draggable="false">
         <div class="card-scroll-head">
           <strong><span class="card-mini-icon">${getCardIcon(c)}</span>${c.name}</strong>
           <span class="card-seal">${sealText}</span>
@@ -3258,6 +3373,10 @@ function renderCards() {
   el.hand.querySelectorAll(".card[data-idx]").forEach((cardEl) => {
     cardEl.addEventListener("pointerdown", (ev) => {
       beginPointerDrag(Number(cardEl.dataset.idx), cardEl, ev);
+    });
+    cardEl.addEventListener("click", () => {
+      if (state.suppressCardClick) return;
+      setArmedCard(Number(cardEl.dataset.idx));
     });
     cardEl.addEventListener("pointerup", () => {
       cardEl.classList.remove("dragging-card");
@@ -3459,6 +3578,37 @@ function pickNearestEnemyProjectileIdByClientX(clientX) {
 
 document.addEventListener("pointermove", movePointerDrag);
 document.addEventListener("pointerup", endPointerDrag);
+if (el.timeline) {
+  el.timeline.addEventListener("click", (ev) => {
+    if (!isBattleActive()) return;
+    if (!state.armedCardIndex && state.armedCardIndex !== 0) return;
+    const target = getLaneTargetFromEvent(ev);
+    if (!target) return;
+    tryCastArmedTarget(target);
+  });
+}
+document.addEventListener("keydown", (ev) => {
+  if (!isBattleActive()) return;
+  const tag = ev.target?.tagName?.toLowerCase();
+  if (tag === "input" || tag === "textarea" || ev.target?.isContentEditable) return;
+  const key = ev.key.toLowerCase();
+  if (key >= "1" && key <= "7") {
+    const idx = Number(key) - 1;
+    if (idx < state.my.hand.length) setArmedCard(idx);
+    ev.preventDefault();
+    return;
+  }
+  if (key === "q" || key === "w" || key === "e") {
+    const lane = key === "q" ? 0 : key === "w" ? 1 : 2;
+    tryCastArmedTarget({ type: "lane", lane, pos: 80 });
+    ev.preventDefault();
+    return;
+  }
+  if (key === "escape") {
+    clearArmedCard();
+    ev.preventDefault();
+  }
+});
 
 function renderEnv() {
   el.mainEnv.innerHTML = `

@@ -80,7 +80,7 @@
       <header class="hero battle-top">
         <div class="battle-title">
           <h1>战斗中</h1>
-          <p>拖拽卡牌到通道出牌，或点击卡牌后点通道（快捷键 1-7 选牌，Q/W/E 出牌，Esc 取消）</p>
+          <p>拖拽卡牌到上下通道格子出牌，或点击卡牌后点通道（快捷键 1-7 选牌，Q/W/E 出牌，Esc 取消）</p>
         </div>
         <div class="controls">
           <button id="btnBackPrep" class="btn">返回备战</button>
@@ -100,6 +100,38 @@
       </header>
 
       <section class="battle-layout">
+        <aside class="battle-side battle-left">
+          <article class="panel drawer open" data-drawer="resource">
+            <div class="drawer-head">
+              <h2>资源</h2>
+              <button class="btn drawer-toggle" data-drawer-toggle type="button" aria-expanded="true">收起</button>
+            </div>
+            <div class="drawer-content">
+              <div id="resourceBoard" class="resource-board"></div>
+            </div>
+          </article>
+
+          <article class="panel decision-panel drawer" data-drawer="decision">
+            <div class="drawer-head">
+              <h2>决策回放</h2>
+              <button class="btn drawer-toggle" data-drawer-toggle type="button" aria-expanded="false">展开</button>
+            </div>
+            <div class="drawer-content">
+              <div id="decisionFeed" class="decision-feed"></div>
+            </div>
+          </article>
+
+          <article class="panel log-panel drawer" data-drawer="log">
+            <div class="drawer-head">
+              <h2>战斗日志</h2>
+              <button class="btn drawer-toggle" data-drawer-toggle type="button" aria-expanded="false">展开</button>
+            </div>
+            <div class="drawer-content">
+              <pre id="log" class="log"></pre>
+            </div>
+          </article>
+        </aside>
+
         <div class="battle-main">
           <div id="battleAlert" class="battle-alert" aria-live="polite"></div>
           <article class="panel status-panel compact">
@@ -132,85 +164,41 @@
 
           <article class="panel panel-wide">
             <h2>战线</h2>
-            <p class="hint">每线记录最近3个元素并触发强化。辅助牌可让下个伤害法术2/3路齐发。</p>
+            <p class="hint">通道改为上下推进：我方由下向上进攻，敌方由上向下推进。</p>
             <div id="timeline" class="timeline"></div>
-          </article>
-
-          <article class="panel panel-wide">
-            <h2>手牌</h2>
-            <div class="hand-tools">
-              <label class="hand-filter">
-                <span>类型</span>
-                <select id="handFilterType">
-                  <option value="all">全部</option>
-                  <option value="attack">攻击</option>
-                  <option value="control">控制</option>
-                  <option value="defense">防御</option>
-                  <option value="utility">功能</option>
-                </select>
-              </label>
-              <label class="hand-filter">
-                <span>元素</span>
-                <select id="handFilterElement">
-                  <option value="all">全部</option>
-                  <option value="wood">木</option>
-                  <option value="fire">火</option>
-                  <option value="earth">土</option>
-                  <option value="metal">金</option>
-                  <option value="water">水</option>
-                </select>
-              </label>
-              <input id="handSearch" class="hand-search" type="text" placeholder="搜索卡名" />
-            </div>
-            <div id="handIntel" class="hand-intel">选中或悬停手牌后，将显示推荐出牌线。</div>
-            <div id="hand" class="card-list"></div>
           </article>
         </div>
 
-        <aside class="battle-side">
-          <article class="panel drawer open" data-drawer="resource">
-            <div class="drawer-head">
-              <h2>资源</h2>
-              <button class="btn drawer-toggle" data-drawer-toggle type="button" aria-expanded="true">收起</button>
-            </div>
-            <div class="drawer-content">
-              <div id="resourceBoard" class="resource-board"></div>
-            </div>
-          </article>
+      </section>
 
-          <article class="panel drawer" data-drawer="env">
-            <div class="drawer-head">
-              <h2>环境</h2>
-              <button class="btn drawer-toggle" data-drawer-toggle type="button" aria-expanded="false">展开</button>
-            </div>
-            <div class="drawer-content">
-              <div class="env-wrap">
-                <div id="mainEnv" class="env-box"></div>
-                <div id="subEnv" class="env-box"></div>
-              </div>
-            </div>
-          </article>
-
-          <article class="panel decision-panel drawer" data-drawer="decision">
-            <div class="drawer-head">
-              <h2>决策回放</h2>
-              <button class="btn drawer-toggle" data-drawer-toggle type="button" aria-expanded="false">展开</button>
-            </div>
-            <div class="drawer-content">
-              <div id="decisionFeed" class="decision-feed"></div>
-            </div>
-          </article>
-
-          <article class="panel log-panel drawer" data-drawer="log">
-            <div class="drawer-head">
-              <h2>战斗日志</h2>
-              <button class="btn drawer-toggle" data-drawer-toggle type="button" aria-expanded="false">展开</button>
-            </div>
-            <div class="drawer-content">
-              <pre id="log" class="log"></pre>
-            </div>
-          </article>
-        </aside>
+      <section class="battle-hand-dock panel">
+        <h2>手牌</h2>
+        <div class="hand-tools">
+          <label class="hand-filter">
+            <span>类型</span>
+            <select id="handFilterType">
+              <option value="all">全部</option>
+              <option value="attack">攻击</option>
+              <option value="control">控制</option>
+              <option value="defense">防御</option>
+              <option value="utility">功能</option>
+            </select>
+          </label>
+          <label class="hand-filter">
+            <span>元素</span>
+            <select id="handFilterElement">
+              <option value="all">全部</option>
+              <option value="wood">木</option>
+              <option value="fire">火</option>
+              <option value="earth">土</option>
+              <option value="metal">金</option>
+              <option value="water">水</option>
+            </select>
+          </label>
+          <input id="handSearch" class="hand-search" type="text" placeholder="搜索卡名" />
+        </div>
+        <div id="handIntel" class="hand-intel">选中或悬停手牌后，将显示推荐出牌线。</div>
+        <div id="hand" class="card-list"></div>
       </section>
     </section>
   </main>

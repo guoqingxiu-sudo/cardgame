@@ -2757,7 +2757,8 @@ function getDropTargetAtPoint(clientX, clientY) {
   const laneEl = hit.closest(".drop-lane");
   if (laneEl) {
     const rect = laneEl.getBoundingClientRect();
-    const pos = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const topPct = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+    const pos = 100 - topPct;
     const slot = posToSlot(pos);
     const lane = Number(laneEl.dataset.lane);
     return { type: "lane", lane, slot, pos: slotToPos(slot) };
@@ -2777,7 +2778,8 @@ function getLaneTargetFromEvent(ev) {
   const laneEl = hit.closest(".drop-lane");
   if (laneEl) {
     const rect = laneEl.getBoundingClientRect();
-    const pos = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100));
+    const topPct = Math.max(0, Math.min(100, ((ev.clientY - rect.top) / rect.height) * 100));
+    const pos = 100 - topPct;
     const slot = posToSlot(pos);
     const lane = Number(laneEl.dataset.lane);
     return { type: "lane", lane, slot, pos: slotToPos(slot) };
@@ -3517,6 +3519,7 @@ function renderCards() {
   el.hand.innerHTML = view.map(({ card: c, idx: i }) => {
     const cost = getCostAfterRole(c);
     const affordable = canPay(state.my, cost) && state.running && !state.pendingCast && state.gameTime >= state.myCastLockUntil;
+    const manaTotal = Object.values(cost).reduce((sum, v) => sum + Number(v || 0), 0);
     const sealText = c.type === "attack" ? "战" : c.type === "control" ? "策" : c.type === "defense" ? "御" : "机";
     const costText = Object.entries(cost)
       .map(([k, v]) => `${ELEMENT_NAME[k]}:${v}`)
@@ -3524,21 +3527,24 @@ function renderCards() {
 
     return `
       <div class="card ${c.element} ${c.type} ${affordable ? "drag-ready" : "drag-disabled"} ${state.armedCardIndex === i ? "armed-card" : ""}" data-idx="${i}" draggable="false">
-        <div class="card-scroll-head">
-          <strong><span class="card-mini-icon">${getCardIcon(c)}</span>${c.name}</strong>
+        <div class="card-gem">${manaTotal}</div>
+        <div class="card-top-banner">
+          <span class="card-class-tag">${ELEMENT_NAME[c.element]}系</span>
           <span class="card-seal">${sealText}</span>
         </div>
-        <div>
-          <span class="tag ${c.element}">${ELEMENT_NAME[c.element]}</span>
-          <span class="tag">${c.type}</span>
+        <div class="card-title">${c.name}</div>
+        <div class="card-art">
+          <span class="card-art-icon">${getCardIcon(c)}</span>
         </div>
-        <div>飞行时间：${c.baseDelay.toFixed(1)}s</div>
-        <div>强度：${(c.power ?? 0) > 0 ? (c.power ?? 0) : "功能牌"}</div>
-        <div class="card-desc">${c.desc || "无额外描述"}</div>
+        <div class="card-textbox">
+          <div class="card-subline">${c.type} · 飞行 ${c.baseDelay.toFixed(1)}s</div>
+          <div class="card-subline">强度：${(c.power ?? 0) > 0 ? (c.power ?? 0) : "功能牌"}</div>
+          <div class="card-desc">${c.desc || "无额外描述"}</div>
+        </div>
         ${c.comboStarter ? `<div class="card-combo">起手连携：${c.comboLabel}</div>` : ""}
         ${c.comboConsumer ? `<div class="card-combo">终结连携：${c.comboLabel}</div>` : ""}
-        <div>消耗：${costText}</div>
-        <div class="drag-tip">${affordable ? "拖拽到上方战线地块使用" : "资源不足/冷却中"}</div>
+        <div class="card-cost-line">消耗：${costText}</div>
+        <div class="drag-tip">${affordable ? "拖拽到通道格子使用" : "资源不足/冷却中"}</div>
       </div>
     `;
   }).join("");
@@ -3593,7 +3599,7 @@ function updateHandAffordability() {
     cardEl.classList.toggle("drag-disabled", !affordable);
     cardEl.setAttribute("draggable", "false");
     const tip = cardEl.querySelector(".drag-tip");
-    if (tip) tip.textContent = affordable ? "拖拽到上方战线地块使用" : "资源不足/冷却中";
+    if (tip) tip.textContent = affordable ? "拖拽到通道格子使用" : "资源不足/冷却中";
   });
 }
 
@@ -3645,9 +3651,9 @@ function renderTimeline() {
       .map((q) => {
         const total = Math.max(0.1, q.dueAt - q.launchedAt);
         const progress = Math.max(0, Math.min(1, (state.gameTime - q.launchedAt) / total));
-        const leftPercent = q.from === "me" ? progress * 100 : (1 - progress) * 100;
+        const topPercent = q.from === "me" ? (1 - progress) * 100 : progress * 100;
         return `
-          <div class="projectile ${q.from} ${q.element} ${q.comboActive ? "combo" : ""}" style="left: calc(${leftPercent}% - 72px);" title="${q.name}">
+          <div class="projectile ${q.from} ${q.element} ${q.comboActive ? "combo" : ""}" style="top: calc(${topPercent}% - 22px);" title="${q.name}">
             <div class="projectile-visual ${q.visualKind || "orb"}">${q.visualIcon || ELEMENT_ICON[q.element] || "✦"}</div>
             <div class="projectile-name">${q.name}</div>
             <div class="projectile-meta">${ELEMENT_NAME[q.element]} | ${Math.max(0, q.dueAt - state.gameTime).toFixed(1)}s ${q.comboLabel ? `| 连携:${q.comboLabel}` : ""}</div>
@@ -3658,7 +3664,7 @@ function renderTimeline() {
     const walls = state.field.walls
       .filter((w) => w.lane === lane)
       .map((w) => `
-        <div class="lane-wall ${w.owner}" style="left: calc(${w.pos}% - 28px);">
+        <div class="lane-wall ${w.owner}" style="top: calc(${100 - w.pos}% - 20px);">
           <div>壁垒</div>
           <div>HP ${Math.round(w.hp)}</div>
         </div>
@@ -3667,7 +3673,7 @@ function renderTimeline() {
     const towers = state.field.arrowTowers
       .filter((t) => t.lane === lane && t.hp > 0)
       .map((t) => `
-        <div class="lane-arrow-tower ${t.owner} ${state.gameTime - t.lastHitAt < 0.16 ? "firing" : ""}" style="left: calc(${t.pos}% - 26px);">
+        <div class="lane-arrow-tower ${t.owner} ${state.gameTime - t.lastHitAt < 0.16 ? "firing" : ""}" style="top: calc(${100 - t.pos}% - 23px);">
           <div class="tower-name">箭塔</div>
           <div class="tower-bar"><span style="width:${Math.max(0, Math.min(100, (t.hp / Math.max(1, t.maxHp || t.hp)) * 100))}%"></span></div>
           <div class="tower-meta">HP ${Math.round(t.hp)}</div>
@@ -3678,14 +3684,15 @@ function renderTimeline() {
     state.field.walls.filter((w) => w.lane === lane).forEach((w) => occupied.add(Number.isInteger(w.slot) ? w.slot : posToSlot(w.pos)));
     state.field.generators.filter((g) => g.lane === lane).forEach((g) => occupied.add(Number.isInteger(g.slot) ? g.slot : posToSlot(g.pos)));
     state.field.arrowTowers.filter((t) => t.lane === lane && t.hp > 0).forEach((t) => occupied.add(Number.isInteger(t.slot) ? t.slot : posToSlot(t.pos)));
-    const tiles = Array.from({ length: LANE_TILE_COUNT }, (_, slot) => `
-      <div class="drop-slot ${occupied.has(slot) ? "occupied" : ""}" data-lane="${lane}" data-slot="${slot}"></div>
-    `).join("");
+    const tiles = Array.from({ length: LANE_TILE_COUNT }, (_, row) => {
+      const slot = LANE_TILE_COUNT - 1 - row;
+      return `<div class="drop-slot ${occupied.has(slot) ? "occupied" : ""}" data-lane="${lane}" data-slot="${slot}"></div>`;
+    }).join("");
 
     const generators = state.field.generators
       .filter((g) => g.lane === lane)
       .map((g) => `
-        <div class="lane-generator ${g.owner} ${g.element}" style="left: calc(${g.pos}% - 28px);">
+        <div class="lane-generator ${g.owner} ${g.element}" style="top: calc(${100 - g.pos}% - 20px);">
           <div>${ELEMENT_NAME[g.element]}脉塔</div>
           <div>HP ${Math.round(g.hp)}</div>
         </div>
@@ -3694,7 +3701,7 @@ function renderTimeline() {
     const summons = state.field.summons
       .filter((s) => s.lane === lane)
       .map((s) => `
-        <div class="lane-summon ${s.owner} ${s.element} ${state.gameTime - s.bornAt < 0.7 ? "entry" : ""} ${state.gameTime - s.lastHitAt < 0.25 ? "hit" : ""}" style="left: calc(${s.pos}% - 24px);">
+        <div class="lane-summon ${s.owner} ${s.element} ${state.gameTime - s.bornAt < 0.7 ? "entry" : ""} ${state.gameTime - s.lastHitAt < 0.25 ? "hit" : ""}" style="top: calc(${100 - s.pos}% - 18px);">
           <div class="summon-avatar">${getSummonAvatar(s.summonKind, s.element)}</div>
           <div class="summon-name">${s.name}</div>
           <div class="summon-bar"><span style="width:${Math.max(0, Math.min(100, (s.hp / Math.max(1, s.maxHp || s.hp)) * 100))}%"></span></div>
@@ -3705,7 +3712,7 @@ function renderTimeline() {
     const traps = state.field.traps
       .filter((t) => t.lane === lane)
       .map((t) => `
-        <div class="lane-trap ${t.owner}" style="left: calc(${t.pos}% - 22px);">
+        <div class="lane-trap ${t.owner}" style="top: calc(${100 - t.pos}% - 17px);">
           <div>${t.effect === "trap_freeze" ? "冰" : "缚"}</div>
           <div>x${t.charges}</div>
         </div>
@@ -3715,8 +3722,8 @@ function renderTimeline() {
       .filter((x) => x.lane === lane)
       .map((x) => {
         const length = Math.max(10, Math.abs(x.toPos - x.fromPos));
-        const center = (x.fromPos + x.toPos) / 2;
-        return `<div class="lane-arrow-shot ${x.owner}" style="left: calc(${center}% - ${length / 2}%); width: ${length}%;"></div>`;
+        const center = 100 - (x.fromPos + x.toPos) / 2;
+        return `<div class="lane-arrow-shot ${x.owner}" style="top: calc(${center}% - ${length / 2}%); height: ${length}%;"></div>`;
       }).join("");
 
     return `
@@ -3809,6 +3816,7 @@ document.addEventListener("keydown", (ev) => {
 });
 
 function renderEnv() {
+  if (!el.mainEnv || !el.subEnv) return;
   el.mainEnv.innerHTML = `
     <div>主环境：<strong>${ELEMENT_NAME[state.env.main.type]}</strong></div>
     <div>强度：${state.env.main.power}</div>

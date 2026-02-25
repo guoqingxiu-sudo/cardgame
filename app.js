@@ -531,6 +531,8 @@ const state = {
   },
   gameTime: 0,
   running: false,
+  simSpeed: 1,
+  reducedFx: false,
   lastStamp: 0,
   rafId: null,
   drawTimer: 0,
@@ -548,6 +550,18 @@ const state = {
   dragStarted: false,
   suppressCardClick: false,
   armedCardIndex: null,
+  hoverCardIndex: null,
+  handFilter: {
+    type: "all",
+    element: "all",
+    search: ""
+  },
+  laneReco: {
+    lanes: [],
+    scoreByLane: [0, 0, 0],
+    reasonByLane: ["", "", ""],
+    text: ""
+  },
   dragPreview: {
     active: false,
     fromX: 0,
@@ -578,6 +592,8 @@ const state = {
     recent: [],
     window: 16
   },
+  logLines: [],
+  maxLogLines: 180,
   deckBuilder: {
     minSize: 24,
     maxSize: 40,
@@ -618,6 +634,9 @@ const el = {
   subEnv: document.getElementById("subEnv"),
   myHp: document.getElementById("myHp"),
   enemyHp: document.getElementById("enemyHp"),
+  myHpBar: document.getElementById("myHpBar"),
+  enemyHpBar: document.getElementById("enemyHpBar"),
+  battleAlert: document.getElementById("battleAlert"),
   myRoleName: document.getElementById("myRoleName"),
   enemyRoleName: document.getElementById("enemyRoleName"),
   tick: document.getElementById("tick"),
@@ -626,6 +645,10 @@ const el = {
   castCd: document.getElementById("castCd"),
   eventName: document.getElementById("eventName"),
   decisionFeed: document.getElementById("decisionFeed"),
+  handFilterType: document.getElementById("handFilterType"),
+  handFilterElement: document.getElementById("handFilterElement"),
+  handSearch: document.getElementById("handSearch"),
+  handIntel: document.getElementById("handIntel"),
   deckBuilderList: document.getElementById("deckBuilderList"),
   deckCount: document.getElementById("deckCount"),
   btnDeckDefault: document.getElementById("btnDeckDefault"),
@@ -659,6 +682,8 @@ const el = {
   netOnlineBox: document.getElementById("netOnlineBox"),
   btnBackPrep: document.getElementById("btnBackPrep"),
   btnNext: document.getElementById("btnNext"),
+  battleSpeed: document.getElementById("battleSpeed"),
+  btnFxLite: document.getElementById("btnFxLite"),
   dragLine: null,
   dragDot: null
 };
@@ -754,13 +779,143 @@ function setArmedCard(index) {
   } else {
     state.armedCardIndex = next;
   }
+  updateLaneRecommendation();
+  if (el.handIntel) el.handIntel.textContent = state.laneReco.text;
   renderCards();
+  renderTimeline();
 }
 
 function clearArmedCard() {
   if (state.armedCardIndex === null) return;
   state.armedCardIndex = null;
+  updateLaneRecommendation();
+  if (el.handIntel) el.handIntel.textContent = state.laneReco.text;
   renderCards();
+  renderTimeline();
+}
+
+function getHandViewIndices() {
+  const kw = (state.handFilter.search || "").trim().toLowerCase();
+  return state.my.hand
+    .map((card, idx) => ({ card, idx }))
+    .filter(({ card }) => state.handFilter.type === "all" || card.type === state.handFilter.type)
+    .filter(({ card }) => state.handFilter.element === "all" || card.element === state.handFilter.element)
+    .filter(({ card }) => !kw || card.name.toLowerCase().includes(kw));
+}
+
+function getActiveHandCardEntry() {
+  if (Number.isInteger(state.armedCardIndex) && state.my.hand[state.armedCardIndex]) {
+    return { card: state.my.hand[state.armedCardIndex], idx: state.armedCardIndex, mode: "armed" };
+  }
+  if (Number.isInteger(state.hoverCardIndex) && state.my.hand[state.hoverCardIndex]) {
+    return { card: state.my.hand[state.hoverCardIndex], idx: state.hoverCardIndex, mode: "hover" };
+  }
+  return null;
+}
+
+function getMyLaneSnapshot(lane) {
+  const enemyQueue = state.queue.filter((x) => x.from === "enemy" && x.lane === lane);
+  const enemyFront = state.field.walls.filter((w) => w.owner === "enemy" && w.lane === lane && w.hp > 0);
+  const enemyGens = state.field.generators.filter((g) => g.owner === "enemy" && g.lane === lane && g.hp > 0);
+  const enemyTowers = state.field.arrowTowers.filter((t) => t.owner === "enemy" && t.lane === lane && t.hp > 0);
+  const enemySummons = state.field.summons.filter((s) => s.owner === "enemy" && s.lane === lane && s.hp > 0);
+  const myFront = state.field.walls.filter((w) => w.owner === "me" && w.lane === lane && w.hp > 0);
+  const myTowers = state.field.arrowTowers.filter((t) => t.owner === "me" && t.lane === lane && t.hp > 0);
+  const myGens = state.field.generators.filter((g) => g.owner === "me" && g.lane === lane && g.hp > 0);
+  const hz = state.field.hazards[lane]?.type || "clear";
+  return {
+    enemyQueueSoon: enemyQueue.filter((q) => q.dueAt - state.gameTime <= 2.2).length,
+    enemyBlock: enemyFront.length * 7 + enemyTowers.length * 8 + enemyGens.length * 5 + enemySummons.length * 4,
+    myHold: myFront.length * 6 + myTowers.length * 7 + myGens.length * 4,
+    hazard: hz,
+    laneRef: getLaneRef(lane)
+  };
+}
+
+function scoreMyCardOnLane(card, lane) {
+  const laneInfo = getMyLaneSnapshot(lane);
+  const laneRef = laneInfo.laneRef;
+  let score = 0;
+  const reasons = [];
+
+  if (card.type === "attack") {
+    const base = 8 + (card.power || 5) * 0.7;
+    const blockPenalty = laneInfo.enemyBlock * 0.4;
+    const queueBonus = laneInfo.enemyQueueSoon * 0.9;
+    score += base - blockPenalty + queueBonus;
+    if (queueBonus > 0) reasons.push("可压制即将结算的敌方行动体");
+    if (blockPenalty > 6) reasons.push("敌方前排阻挡较强");
+    if (laneRef.meNextBonus?.element === card.element) {
+      score += 5;
+      reasons.push("可吃到我方元素累计强化");
+    }
+    if (laneRef.meAura?.element === card.element && laneRef.meAura.expiresAt > state.gameTime) {
+      score += 4;
+      reasons.push("可吃到该线调谐增伤");
+    }
+    if (laneInfo.hazard === "blaze") {
+      score += 1.4;
+      reasons.push("地形灼热，伤害收益更高");
+    }
+    if (laneInfo.hazard === "frost") {
+      score -= 1.2;
+      reasons.push("地形霜冻，结算会偏慢");
+    }
+  } else if (card.type === "control" || card.type === "defense") {
+    score += 6 + laneInfo.enemyQueueSoon * 2.2;
+    if (laneInfo.enemyQueueSoon > 0) reasons.push("该线敌方行动体密度高，控制收益高");
+    if (laneInfo.hazard === "frost") {
+      score += 0.8;
+      reasons.push("霜冻地形放大控制收益");
+    }
+  } else if (card.type === "utility") {
+    if (card.effect?.startsWith("summon_")) {
+      score += 7 - laneInfo.enemyBlock * 0.25 + laneInfo.myHold * 0.55;
+      reasons.push(laneInfo.myHold >= 8 ? "我方该线站场较稳，召唤更易滚雪球" : "可补充该线场面单位");
+    } else if (card.effect?.startsWith("gen_")) {
+      score += 5 + laneInfo.myHold * 0.8 - laneInfo.enemyQueueSoon * 0.9;
+      reasons.push(laneInfo.enemyQueueSoon > 0 ? "敌方该线压制高，资源塔风险偏大" : "该线压力较低，适合铺资源塔");
+    } else if (card.effect === "trap_freeze" || card.effect === "trap_snare") {
+      score += 5 + laneInfo.enemyQueueSoon * 1.8;
+      reasons.push("敌方该线即将结算单位较多，陷阱收益高");
+    } else if (card.effect?.startsWith("lane_")) {
+      const oppStack = (laneRef.enemyTrack?.length || 0) + (laneRef.enemyNextBonus ? 2 : 0);
+      score += 4 + oppStack * 1.5;
+      reasons.push(oppStack > 0 ? "可打断敌方该线元素节奏" : "可提前建立通道优势");
+    } else if (card.effect?.startsWith("tower_")) {
+      const myTower = state.field.arrowTowers.find((t) => t.owner === "me" && t.lane === lane && t.hp > 0);
+      score += myTower ? 7 : -4;
+      if (myTower) score += (1 - myTower.hp / Math.max(1, myTower.maxHp || myTower.hp)) * 4;
+      reasons.push(myTower ? "该线已有箭塔，可直接吃强化收益" : "该线无箭塔，强化卡收益受限");
+    }
+  }
+  return { score, reason: reasons[0] || "该线综合收益更高" };
+}
+
+function updateLaneRecommendation() {
+  const active = getActiveHandCardEntry();
+  if (!active) {
+    state.laneReco = { lanes: [], scoreByLane: [0, 0, 0], reasonByLane: ["", "", ""], text: "选中或悬停手牌后，将显示推荐出牌线。" };
+    return;
+  }
+  const laneEval = Array.from({ length: LANE_COUNT }, (_, lane) => scoreMyCardOnLane(active.card, lane));
+  const scoreByLane = laneEval.map((x) => x.score);
+  const reasonByLane = laneEval.map((x) => x.reason);
+  const ranked = scoreByLane
+    .map((score, lane) => ({ lane, score }))
+    .sort((a, b) => b.score - a.score);
+  const top = ranked[0]?.score ?? 0;
+  const lanes = ranked.filter((x) => top - x.score <= 1.3).slice(0, 2).map((x) => x.lane);
+  const laneText = lanes.map((lane) => `${lane + 1}线`).join(" / ");
+  const modeText = active.mode === "armed" ? "选中" : "悬停";
+  const leadLane = lanes[0] ?? ranked[0]?.lane ?? 1;
+  const leadReason = reasonByLane[leadLane] || "综合评分最高";
+  state.laneReco = {
+    lanes,
+    scoreByLane,
+    reasonByLane,
+    text: `${modeText}【${active.card.name}】推荐：${laneText || "中线"}。原因：${leadReason}。按 Q/W/E 可快速落线。`
+  };
 }
 
 function updateStartButtonState() {
@@ -817,6 +972,21 @@ function refreshNetUI() {
   if (el.btnModeOnline) el.btnModeOnline.classList.toggle("btn-primary", net.mode === "online");
   updateLobbyBoard();
   updateStartButtonState();
+  updateBattleControlState();
+}
+
+function updateBattleControlState() {
+  if (el.battleSpeed) {
+    el.battleSpeed.value = String(state.simSpeed);
+    const lockSpeed = isOnlineMode();
+    el.battleSpeed.disabled = lockSpeed;
+    el.battleSpeed.title = lockSpeed ? "联机模式固定为 1.0x" : "";
+  }
+  if (el.btnFxLite) {
+    el.btnFxLite.textContent = `简化特效：${state.reducedFx ? "开" : "关"}`;
+    el.btnFxLite.classList.toggle("btn-primary", state.reducedFx);
+  }
+  document.body.classList.toggle("reduced-fx", !!state.reducedFx);
 }
 
 function switchToLocalMode() {
@@ -1464,7 +1634,11 @@ function createArrowTowerState() {
 
 function logLine(text) {
   const stamp = `[${state.gameTime.toFixed(1)}s]`;
-  el.log.textContent = `${stamp} ${text}\n${el.log.textContent}`.trim();
+  state.logLines.unshift(`${stamp} ${text}`);
+  if (state.logLines.length > state.maxLogLines) {
+    state.logLines.length = state.maxLogLines;
+  }
+  if (el.log) el.log.textContent = state.logLines.join("\n");
 }
 
 function pushDecision(entry) {
@@ -1545,7 +1719,8 @@ function resetBattle() {
   state.env.sub = randomEnv(2);
   net.myRematch = false;
   net.peerRematch = false;
-  el.log.textContent = "";
+  state.logLines = [];
+  if (el.log) el.log.textContent = "";
   setScreen("battle");
   drawCards("my", 5);
   drawCards("enemy", 5);
@@ -1604,7 +1779,8 @@ function togglePause() {
 function loop(timestamp) {
   if (!state.running) return;
   if (state.lastStamp === 0) state.lastStamp = timestamp;
-  const dt = Math.min(0.2, (timestamp - state.lastStamp) / 1000);
+  const speedMul = isOnlineMode() ? 1 : state.simSpeed;
+  const dt = Math.min(0.2, (timestamp - state.lastStamp) / 1000 * speedMul);
   state.lastStamp = timestamp;
 
   stepSimulation(dt);
@@ -3337,7 +3513,8 @@ function renderRoles() {
 }
 
 function renderCards() {
-  el.hand.innerHTML = state.my.hand.map((c, i) => {
+  const view = getHandViewIndices();
+  el.hand.innerHTML = view.map(({ card: c, idx: i }) => {
     const cost = getCostAfterRole(c);
     const affordable = canPay(state.my, cost) && state.running && !state.pendingCast && state.gameTime >= state.myCastLockUntil;
     const sealText = c.type === "attack" ? "战" : c.type === "control" ? "策" : c.type === "defense" ? "御" : "机";
@@ -3368,18 +3545,33 @@ function renderCards() {
 
   if (!state.my.hand.length) {
     el.hand.innerHTML = '<div class="card"><div><strong>暂无手牌</strong></div><div>等待抽牌...</div></div>';
+  } else if (!view.length) {
+    el.hand.innerHTML = '<div class="card"><div><strong>无匹配手牌</strong></div><div>调整筛选条件后重试。</div></div>';
   }
 
   el.hand.querySelectorAll(".card[data-idx]").forEach((cardEl) => {
+    const idx = Number(cardEl.dataset.idx);
     cardEl.addEventListener("pointerdown", (ev) => {
-      beginPointerDrag(Number(cardEl.dataset.idx), cardEl, ev);
+      beginPointerDrag(idx, cardEl, ev);
     });
     cardEl.addEventListener("click", () => {
       if (state.suppressCardClick) return;
-      setArmedCard(Number(cardEl.dataset.idx));
+      setArmedCard(idx);
     });
     cardEl.addEventListener("pointerup", () => {
       cardEl.classList.remove("dragging-card");
+    });
+    cardEl.addEventListener("mouseenter", () => {
+      state.hoverCardIndex = idx;
+      updateLaneRecommendation();
+      if (el.handIntel) el.handIntel.textContent = state.laneReco.text;
+      if (state.armedCardIndex === null) renderTimeline();
+    });
+    cardEl.addEventListener("mouseleave", () => {
+      if (state.hoverCardIndex === idx) state.hoverCardIndex = null;
+      updateLaneRecommendation();
+      if (el.handIntel) el.handIntel.textContent = state.laneReco.text;
+      if (state.armedCardIndex === null) renderTimeline();
     });
   });
 }
@@ -3444,6 +3636,9 @@ function renderTimeline() {
       : "敌方调谐:-";
     const meBonusText = laneRef.meNextBonus?.element ? `我方强化:${ELEMENT_NAME[laneRef.meNextBonus.element]}` : "我方强化:-";
     const enemyBonusText = laneRef.enemyNextBonus?.element ? `敌方强化:${ELEMENT_NAME[laneRef.enemyNextBonus.element]}` : "敌方强化:-";
+    const reco = state.laneReco?.lanes?.includes(lane);
+    const recoScore = state.laneReco?.scoreByLane?.[lane] ?? 0;
+    const recoReason = state.laneReco?.reasonByLane?.[lane] || "";
     const actions = state.queue
       .filter((q) => q.lane === lane)
       .sort((a, b) => a.dueAt - b.dueAt)
@@ -3530,11 +3725,12 @@ function renderTimeline() {
           <span class="lane-mark">${theme.mark}</span>
           <span class="lane-name">${theme.name}</span><br>
           <span class="lane-hazard ${hz}">${hzLabel}</span>
+          <span class="lane-reco-tag ${reco ? "show" : ""}" title="${recoReason}">${reco ? `推荐 ${recoScore.toFixed(1)}` : ""}</span>
           <span class="lane-accum">我:${laneTrackText(laneRef.meTrack)} | 敌:${laneTrackText(laneRef.enemyTrack)}</span>
           <span class="lane-accum">${meBonusText} | ${enemyBonusText}</span>
           <span class="lane-accum">${meAuraText} | ${enemyAuraText}</span>
         </div>
-        <div class="lane-row-track drop-lane ${hz}" data-lane="${lane}">
+        <div class="lane-row-track drop-lane ${hz} ${reco ? "lane-recommended" : ""}" data-lane="${lane}" title="${reco ? recoReason : ""}">
           <div class="lane-tiles">${tiles}</div>
           ${actions || '<div class="lane-empty">该线暂无行动体</div>'}
           ${walls}
@@ -3593,8 +3789,10 @@ document.addEventListener("keydown", (ev) => {
   if (tag === "input" || tag === "textarea" || ev.target?.isContentEditable) return;
   const key = ev.key.toLowerCase();
   if (key >= "1" && key <= "7") {
-    const idx = Number(key) - 1;
-    if (idx < state.my.hand.length) setArmedCard(idx);
+    const pos = Number(key) - 1;
+    const view = getHandViewIndices();
+    const idx = view[pos]?.idx;
+    if (Number.isInteger(idx)) setArmedCard(idx);
     ev.preventDefault();
     return;
   }
@@ -3624,6 +3822,10 @@ function renderEnv() {
 function renderStatus() {
   el.myHp.textContent = `${state.myHp.toFixed(0)}`;
   el.enemyHp.textContent = `${state.enemyHp.toFixed(0)}`;
+  const myHpPct = Math.max(0, Math.min(100, state.myHp));
+  const enemyHpPct = Math.max(0, Math.min(100, state.enemyHp));
+  if (el.myHpBar) el.myHpBar.style.width = `${myHpPct}%`;
+  if (el.enemyHpBar) el.enemyHpBar.style.width = `${enemyHpPct}%`;
   if (el.myRoleName) el.myRoleName.textContent = state.role ? `${state.role.name} | ${ELEMENT_NAME[state.role.main]}系` : "未选流派";
   if (el.enemyRoleName) el.enemyRoleName.textContent = "战域傀儡";
   el.tick.textContent = `${state.gameTime.toFixed(1)}s`;
@@ -3632,6 +3834,25 @@ function renderStatus() {
   const cd = Math.max(0, state.myCastLockUntil - state.gameTime);
   el.castCd.textContent = `${cd.toFixed(1)}s`;
   if (el.eventName) el.eventName.textContent = `${state.battlefieldEvent.name}`;
+  if (el.battleAlert) {
+    let alertText = "";
+    let level = "quiet";
+    if (state.myHp <= 25 && state.enemyHp <= 25) {
+      alertText = "双方生命均已低于 25，进入决胜窗口。";
+      level = "hot";
+    } else if (state.myHp <= 25) {
+      alertText = "我方生命低于 25，建议优先防守与反制。";
+      level = "danger";
+    } else if (state.enemyHp <= 25) {
+      alertText = "敌方生命低于 25，可切换终结压制。";
+      level = "adv";
+    } else if (Math.abs(state.myHp - state.enemyHp) >= 24) {
+      alertText = state.myHp > state.enemyHp ? "我方血线优势显著，可转持续施压。" : "我方血线劣势明显，建议回收资源稳住。";
+      level = "warn";
+    }
+    el.battleAlert.textContent = alertText;
+    el.battleAlert.className = `battle-alert ${level} ${alertText ? "show" : ""}`;
+  }
 }
 
 function renderDecisionFeed() {
@@ -3654,6 +3875,8 @@ function renderDecisionFeed() {
 }
 
 function renderRuntime() {
+  updateLaneRecommendation();
+  if (el.handIntel) el.handIntel.textContent = state.laneReco.text;
   renderResources();
   updateHandAffordability();
   renderTimeline();
@@ -3713,6 +3936,27 @@ el.btnStart.addEventListener("click", async () => {
   updateStartButtonState();
 });
 el.btnNext.addEventListener("click", togglePause);
+if (el.battleSpeed) {
+  el.battleSpeed.addEventListener("change", () => {
+    const next = Number(el.battleSpeed.value || "1");
+    if (isOnlineMode()) {
+      state.simSpeed = 1;
+      updateBattleControlState();
+      return;
+    }
+    if (!Number.isFinite(next) || next <= 0) return;
+    state.simSpeed = Math.max(0.5, Math.min(2, next));
+    updateBattleControlState();
+    logLine(`演算速度已切换为 ${state.simSpeed.toFixed(1)}x。`);
+  });
+}
+if (el.btnFxLite) {
+  el.btnFxLite.addEventListener("click", () => {
+    state.reducedFx = !state.reducedFx;
+    updateBattleControlState();
+    logLine(state.reducedFx ? "已启用简化特效模式。" : "已关闭简化特效模式。");
+  });
+}
 if (el.btnBackPrep) {
   el.btnBackPrep.addEventListener("click", () => {
     state.running = false;
@@ -3740,6 +3984,27 @@ if (el.btnDeckDefault) {
     saveDeckBuilderCache();
     renderDeckBuilder();
     logLine("已恢复默认卡组。");
+  });
+}
+if (el.handFilterType) {
+  el.handFilterType.addEventListener("change", () => {
+    state.handFilter.type = el.handFilterType.value || "all";
+    renderCards();
+    renderRuntime();
+  });
+}
+if (el.handFilterElement) {
+  el.handFilterElement.addEventListener("change", () => {
+    state.handFilter.element = el.handFilterElement.value || "all";
+    renderCards();
+    renderRuntime();
+  });
+}
+if (el.handSearch) {
+  el.handSearch.addEventListener("input", () => {
+    state.handFilter.search = el.handSearch.value || "";
+    renderCards();
+    renderRuntime();
   });
 }
 if (el.btnModeLocal) el.btnModeLocal.addEventListener("click", switchToLocalMode);

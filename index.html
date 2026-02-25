@@ -86,10 +86,22 @@
           <button id="btnBackPrep" class="btn">返回备战</button>
           <button id="btnNext" class="btn">暂停</button>
         </div>
+        <div class="battle-tools">
+          <label class="battle-tool">
+            <span>演算速度</span>
+            <select id="battleSpeed" class="battle-select">
+              <option value="1">1.0x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2.0x</option>
+            </select>
+          </label>
+          <button id="btnFxLite" class="btn" type="button">简化特效：关</button>
+        </div>
       </header>
 
       <section class="battle-layout">
         <div class="battle-main">
+          <div id="battleAlert" class="battle-alert" aria-live="polite"></div>
           <article class="panel status-panel compact">
             <div class="status-row">
               <div class="hp-box hero-stat my-side">
@@ -97,6 +109,7 @@
                 <div class="hero-info">
                   <span>我方生命</span>
                   <strong id="myHp"></strong>
+                  <div class="hero-hpbar"><span id="myHpBar"></span></div>
                   <em id="myRoleName" class="hero-role">未选流派</em>
                 </div>
               </div>
@@ -105,6 +118,7 @@
                 <div class="hero-info">
                   <span>敌方生命</span>
                   <strong id="enemyHp"></strong>
+                  <div class="hero-hpbar"><span id="enemyHpBar"></span></div>
                   <em id="enemyRoleName" class="hero-role">战域傀儡</em>
                 </div>
               </div>
@@ -124,6 +138,31 @@
 
           <article class="panel panel-wide">
             <h2>手牌</h2>
+            <div class="hand-tools">
+              <label class="hand-filter">
+                <span>类型</span>
+                <select id="handFilterType">
+                  <option value="all">全部</option>
+                  <option value="attack">攻击</option>
+                  <option value="control">控制</option>
+                  <option value="defense">防御</option>
+                  <option value="utility">功能</option>
+                </select>
+              </label>
+              <label class="hand-filter">
+                <span>元素</span>
+                <select id="handFilterElement">
+                  <option value="all">全部</option>
+                  <option value="wood">木</option>
+                  <option value="fire">火</option>
+                  <option value="earth">土</option>
+                  <option value="metal">金</option>
+                  <option value="water">水</option>
+                </select>
+              </label>
+              <input id="handSearch" class="hand-search" type="text" placeholder="搜索卡名" />
+            </div>
+            <div id="handIntel" class="hand-intel">选中或悬停手牌后，将显示推荐出牌线。</div>
             <div id="hand" class="card-list"></div>
           </article>
         </div>

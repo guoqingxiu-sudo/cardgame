@@ -19,6 +19,7 @@ const LANE_COUNT = 3;
 const LANE_TILE_COUNT = 12;
 const LANE_LEFT = 8;
 const LANE_RIGHT = 92;
+const SUMMON_BRAWL_RANGE = 7.6;
 const LANE_THEME = [
   { name: "青龙道", mark: "青" },
   { name: "白虎道", mark: "白" },
@@ -148,25 +149,27 @@ const CARD_POOL = [
   },
   {
     id: "c10",
-    name: "灵木脉塔",
+    name: "灵木采气",
     type: "utility",
     element: "wood",
     baseDelay: 0.2,
     power: 0,
-    effect: "gen_wood",
-    desc: "资源塔：持续提升木系恢复，并可作为前排防线。",
-    cost: { wood: 2 }
+    effect: "resource_card",
+    effectValue: 3.2,
+    desc: "资源牌：立即获得木系资源。",
+    cost: {}
   },
   {
     id: "c11",
-    name: "赤焰脉塔",
+    name: "赤焰采气",
     type: "utility",
     element: "fire",
     baseDelay: 0.2,
     power: 0,
-    effect: "gen_fire",
-    desc: "资源塔：持续提升火系恢复，并可作为前排防线。",
-    cost: { fire: 2 }
+    effect: "resource_card",
+    effectValue: 3.2,
+    desc: "资源牌：立即获得火系资源。",
+    cost: {}
   },
   {
     id: "c12",
@@ -206,36 +209,39 @@ const CARD_POOL = [
   },
   {
     id: "c17",
-    name: "厚土脉塔",
+    name: "厚土采气",
     type: "utility",
     element: "earth",
     baseDelay: 0.2,
     power: 0,
-    effect: "gen_earth",
-    desc: "资源塔：持续提升土系恢复，并可作为前排防线。",
-    cost: { earth: 2 }
+    effect: "resource_card",
+    effectValue: 3.2,
+    desc: "资源牌：立即获得土系资源。",
+    cost: {}
   },
   {
     id: "c18",
-    name: "玄金脉塔",
+    name: "玄金采气",
     type: "utility",
     element: "metal",
     baseDelay: 0.2,
     power: 0,
-    effect: "gen_metal",
-    desc: "资源塔：持续提升金系恢复，并可作为前排防线。",
-    cost: { metal: 2 }
+    effect: "resource_card",
+    effectValue: 3.2,
+    desc: "资源牌：立即获得金系资源。",
+    cost: {}
   },
   {
     id: "c19",
-    name: "寒潮脉塔",
+    name: "寒潮采气",
     type: "utility",
     element: "water",
     baseDelay: 0.2,
     power: 0,
-    effect: "gen_water",
-    desc: "资源塔：持续提升水系恢复，并可作为前排防线。",
-    cost: { water: 2 }
+    effect: "resource_card",
+    effectValue: 3.2,
+    desc: "资源牌：立即获得水系资源。",
+    cost: {}
   },
   {
     id: "c23",
@@ -514,10 +520,53 @@ const CARD_POOL = [
     effect: "tower_volley",
     desc: "强化箭塔：提升攻速并小幅提升射程。",
     cost: { wood: 2, water: 1 }
+  },
+  {
+    id: "c47",
+    name: "试探飞矢",
+    type: "attack",
+    element: "metal",
+    baseDelay: 2.4,
+    power: 3,
+    desc: "零费轻攻：用于过渡与补伤，避免卡手。",
+    cost: {}
+  },
+  {
+    id: "c48",
+    name: "巡线牵制",
+    type: "control",
+    element: "wood",
+    baseDelay: 2.5,
+    power: 0,
+    effect: "slow",
+    desc: "零费控制：延后敌方最近行动体结算时间。",
+    cost: {}
+  },
+  {
+    id: "c49",
+    name: "临战调谐",
+    type: "utility",
+    element: "water",
+    baseDelay: 0.2,
+    power: 0,
+    effect: "lane_attune_water",
+    desc: "零费功能：快速给通道挂水脉调谐。",
+    cost: {}
+  },
+  {
+    id: "c50",
+    name: "前线侦召",
+    type: "utility",
+    element: "earth",
+    baseDelay: 0.2,
+    power: 0,
+    effect: "summon_scout",
+    desc: "零费召唤：投入低强度前线单位，缓解手牌节奏。",
+    cost: {}
   }
 ];
 
-const DEFAULT_DECK_IDS = ["c1", "c2", "c3", "c4", "c5", "c6", "c8", "c9", "c10", "c11", "c17", "c18", "c19", "c12", "c13", "c14", "c23", "c24", "c25", "c26", "c27", "c28", "c29", "c30", "c31", "c32", "c33", "c34", "c35", "c36", "c37", "c38", "c39", "c40", "c41", "c42", "c43", "c44", "c45", "c46"];
+const DEFAULT_DECK_IDS = ["c1", "c2", "c3", "c4", "c5", "c6", "c8", "c9", "c10", "c11", "c17", "c18", "c19", "c12", "c13", "c14", "c23", "c24", "c25", "c26", "c27", "c28", "c29", "c30", "c31", "c32", "c33", "c34", "c35", "c36", "c37", "c38", "c39", "c40", "c41", "c42", "c47", "c48", "c49", "c50"];
 const DECK_CACHE_KEY = "wuxing_battle_demo_deck_v1";
 
 const state = {
@@ -551,11 +600,6 @@ const state = {
   suppressCardClick: false,
   armedCardIndex: null,
   hoverCardIndex: null,
-  handFilter: {
-    type: "all",
-    element: "all",
-    search: ""
-  },
   laneReco: {
     lanes: [],
     scoreByLane: [0, 0, 0],
@@ -585,6 +629,7 @@ const state = {
   castFxUntil: 0,
   myCastLockUntil: 0,
   enemyCastLockUntil: 0,
+  myDiscardLockUntil: 0,
   hitFx: { my: 0, enemy: 0 },
   floatTexts: [],
   decisionFeed: [],
@@ -592,6 +637,7 @@ const state = {
     recent: [],
     window: 16
   },
+  sharedRecentElements: [],
   logLines: [],
   maxLogLines: 180,
   deckBuilder: {
@@ -607,7 +653,6 @@ const state = {
     maxHand: 7,
     drawCooldown: 3.4,
     resources: createResourceState(),
-    regen: { wood: 0.035, fire: 0.032, earth: 0.03, metal: 0.03, water: 0.035 },
     combo: { key: "", expiresAt: 0 },
     nextAttackSpread: 1
   },
@@ -617,7 +662,6 @@ const state = {
     discard: [],
     maxHand: 7,
     resources: createResourceState(),
-    regen: { wood: 0.032, fire: 0.032, earth: 0.03, metal: 0.03, water: 0.032 },
     combo: { key: "", expiresAt: 0 },
     nextAttackSpread: 1
   }
@@ -645,10 +689,8 @@ const el = {
   castCd: document.getElementById("castCd"),
   eventName: document.getElementById("eventName"),
   decisionFeed: document.getElementById("decisionFeed"),
-  handFilterType: document.getElementById("handFilterType"),
-  handFilterElement: document.getElementById("handFilterElement"),
-  handSearch: document.getElementById("handSearch"),
   handIntel: document.getElementById("handIntel"),
+  recentElements: document.getElementById("recentElements"),
   deckBuilderList: document.getElementById("deckBuilderList"),
   deckCount: document.getElementById("deckCount"),
   btnDeckDefault: document.getElementById("btnDeckDefault"),
@@ -684,6 +726,8 @@ const el = {
   btnNext: document.getElementById("btnNext"),
   battleSpeed: document.getElementById("battleSpeed"),
   btnFxLite: document.getElementById("btnFxLite"),
+  btnDecisionPanel: document.getElementById("btnDecisionPanel"),
+  btnLogPanel: document.getElementById("btnLogPanel"),
   dragLine: null,
   dragDot: null
 };
@@ -795,12 +839,7 @@ function clearArmedCard() {
 }
 
 function getHandViewIndices() {
-  const kw = (state.handFilter.search || "").trim().toLowerCase();
-  return state.my.hand
-    .map((card, idx) => ({ card, idx }))
-    .filter(({ card }) => state.handFilter.type === "all" || card.type === state.handFilter.type)
-    .filter(({ card }) => state.handFilter.element === "all" || card.element === state.handFilter.element)
-    .filter(({ card }) => !kw || card.name.toLowerCase().includes(kw));
+  return state.my.hand.map((card, idx) => ({ card, idx }));
 }
 
 function getActiveHandCardEntry() {
@@ -872,9 +911,11 @@ function scoreMyCardOnLane(card, lane) {
     if (card.effect?.startsWith("summon_")) {
       score += 7 - laneInfo.enemyBlock * 0.25 + laneInfo.myHold * 0.55;
       reasons.push(laneInfo.myHold >= 8 ? "我方该线站场较稳，召唤更易滚雪球" : "可补充该线场面单位");
-    } else if (card.effect?.startsWith("gen_")) {
-      score += 5 + laneInfo.myHold * 0.8 - laneInfo.enemyQueueSoon * 0.9;
-      reasons.push(laneInfo.enemyQueueSoon > 0 ? "敌方该线压制高，资源塔风险偏大" : "该线压力较低，适合铺资源塔");
+    } else if (card.effect === "resource_card" || card.effect?.startsWith("gen_")) {
+      const pool = state.my.resources[card.element];
+      const lack = Math.max(0, 4.2 - pool.current);
+      score += 3.5 + lack * 1.4;
+      reasons.push("资源牌不依赖站场，优先回补当前缺口");
     } else if (card.effect === "trap_freeze" || card.effect === "trap_snare") {
       score += 5 + laneInfo.enemyQueueSoon * 1.8;
       reasons.push("敌方该线即将结算单位较多，陷阱收益高");
@@ -1440,6 +1481,14 @@ function syncDrawerButton(drawer) {
 function toggleDrawer(drawer) {
   drawer.classList.toggle("open");
   syncDrawerButton(drawer);
+  syncTopDrawerButtons();
+}
+
+function syncTopDrawerButtons() {
+  const decisionOpen = !!document.querySelector('.battle-side [data-drawer="decision"]')?.classList.contains("open");
+  const logOpen = !!document.querySelector('.battle-side [data-drawer="log"]')?.classList.contains("open");
+  if (el.btnDecisionPanel) el.btnDecisionPanel.classList.toggle("active", decisionOpen);
+  if (el.btnLogPanel) el.btnLogPanel.classList.toggle("active", logOpen);
 }
 
 function initBattleDrawers() {
@@ -1450,6 +1499,21 @@ function initBattleDrawers() {
     syncDrawerButton(drawer);
     btn.addEventListener("click", () => toggleDrawer(drawer));
   });
+  if (el.btnDecisionPanel) {
+    el.btnDecisionPanel.addEventListener("click", () => {
+      const drawer = document.querySelector('.battle-side [data-drawer="decision"]');
+      if (!drawer) return;
+      toggleDrawer(drawer);
+    });
+  }
+  if (el.btnLogPanel) {
+    el.btnLogPanel.addEventListener("click", () => {
+      const drawer = document.querySelector('.battle-side [data-drawer="log"]');
+      if (!drawer) return;
+      toggleDrawer(drawer);
+    });
+  }
+  syncTopDrawerButtons();
 }
 
 function createResourceState() {
@@ -1504,6 +1568,7 @@ function setDeckToDefault() {
 function classifyCardProfile(card) {
   if (!card) return "other";
   if (card.effect?.startsWith("summon_")) return "summon";
+  if (card.effect === "resource_card") return "generator";
   if (card.effect?.startsWith("gen_")) return "generator";
   if (card.effect?.startsWith("lane_")) return "lane";
   if (card.effect?.startsWith("spell_spread_")) return "support";
@@ -1698,10 +1763,12 @@ function resetBattle() {
   state.castFxUntil = 0;
   state.myCastLockUntil = 0;
   state.enemyCastLockUntil = 0;
+  state.myDiscardLockUntil = 0;
   state.hitFx = { my: 0, enemy: 0 };
   state.floatTexts = [];
   state.decisionFeed = [];
   state.aiRead.recent = [];
+  state.sharedRecentElements = [];
   hideResultModal();
   state.my.deck = makeDeck(myDeckIds);
   state.my.hand = [];
@@ -1793,8 +1860,6 @@ function stepSimulation(dt) {
   const simDt = state.dragCardIndex !== null ? dt * 0.25 : dt;
   state.gameTime += simDt;
   state.floatTexts = state.floatTexts.filter((x) => x.expiresAt > state.gameTime);
-  regenerateResources("my", simDt);
-  regenerateResources("enemy", simDt);
 
   state.drawTimer += simDt;
   if (state.drawTimer >= state.my.drawCooldown) {
@@ -1804,7 +1869,7 @@ function stepSimulation(dt) {
   }
 
   state.enemyThinkTimer += simDt;
-  if (!isOnlineMode() && state.enemyThinkTimer >= 1.0) {
+  if (!isOnlineMode() && state.enemyThinkTimer >= 0.78) {
     state.enemyThinkTimer = 0;
     enemyPlayLogic();
   }
@@ -2035,7 +2100,7 @@ function processSummons(dt) {
     if (s.hp <= 0) return;
     const enemy = findFrontEnemySummon(s);
     if (!enemy) return;
-    if (Math.abs(enemy.pos - s.pos) > 5) return;
+    if (Math.abs(enemy.pos - s.pos) > SUMMON_BRAWL_RANGE) return;
     engaged.add(s.id);
     engaged.add(enemy.id);
     if (state.gameTime < s.nextHitAt) return;
@@ -2098,21 +2163,6 @@ function processSummons(dt) {
   state.field.summons = state.field.summons.filter((s) => s.hp > 0);
 }
 
-function regenerateResources(side, dt) {
-  const actor = side === "my" ? state.my : state.enemy;
-  const owner = side === "my" ? "me" : "enemy";
-  const myHp = side === "my" ? state.myHp : state.enemyHp;
-  const oppHp = side === "my" ? state.enemyHp : state.myHp;
-  const comeback = Math.max(0, Math.min(0.18, (oppHp - myHp) / 100 * 0.18));
-  const eventBoost = state.battlefieldEvent.id === "surge" ? 1.35 : 1;
-  const comebackBoost = 1 + comeback;
-  ELEMENTS.forEach((e) => {
-    const towerBoost = getGeneratorBonusForElement(owner, e);
-    const r = actor.resources[e];
-    r.current = Math.min(r.max, r.current + (actor.regen[e] + towerBoost) * dt * eventBoost * comebackBoost);
-  });
-}
-
 function drawCards(side, count) {
   const actor = side === "my" ? state.my : state.enemy;
   let drew = false;
@@ -2140,6 +2190,7 @@ function formatSummonGoalTag(s) {
 
 function getCardIcon(card) {
   if (card.effect?.startsWith("summon_")) return "🐾";
+  if (card.effect === "resource_card") return "💠";
   if (card.effect?.startsWith("gen_")) return "🏯";
   if (card.effect?.startsWith("tower_")) return "🏹";
   if (card.effect?.startsWith("lane_")) return "🧭";
@@ -2175,12 +2226,6 @@ function getSummonAvatar(effect, element) {
     summon_blood: "🦇"
   };
   return map[effect] || ELEMENT_ICON[element] || "🐾";
-}
-
-function getGeneratorBonusForElement(owner, element) {
-  return state.field.generators
-    .filter((g) => g.owner === owner && g.hp > 0)
-    .reduce((acc, g) => acc + (g.element === element ? g.primaryBoost : g.splashBoost), 0);
 }
 
 function getSummonConfig(effect) {
@@ -2233,6 +2278,8 @@ function registerLaneElement(from, lane, element) {
   const laneRef = getLaneRef(lane);
   const keyTrack = from === "me" ? "meTrack" : "enemyTrack";
   const keyBonus = from === "me" ? "meNextBonus" : "enemyNextBonus";
+  state.sharedRecentElements.push(element);
+  state.sharedRecentElements = state.sharedRecentElements.slice(-3);
   laneRef[keyTrack].push(element);
   laneRef[keyTrack] = laneRef[keyTrack].slice(-3);
   if (laneRef[keyTrack].length === 3 && laneRef[keyTrack].every((x) => x === element)) {
@@ -2316,6 +2363,26 @@ function payCost(actor, cost) {
   Object.entries(cost).forEach(([k, v]) => {
     actor.resources[k].current = Math.max(0, actor.resources[k].current - v);
   });
+}
+
+function refundFromCost(cost, ratio = 0.55) {
+  const out = {};
+  Object.entries(cost || {}).forEach(([k, v]) => {
+    const gain = Number(v || 0) * ratio;
+    if (gain > 0) out[k] = gain;
+  });
+  return out;
+}
+
+function applyResourceGain(actor, gainMap) {
+  let total = 0;
+  Object.entries(gainMap || {}).forEach(([k, v]) => {
+    if (!actor.resources[k]) return;
+    const before = actor.resources[k].current;
+    actor.resources[k].current = Math.min(actor.resources[k].max, before + v);
+    total += Math.max(0, actor.resources[k].current - before);
+  });
+  return total;
 }
 
 function scheduleAction(from, card) {
@@ -2409,6 +2476,23 @@ function applyUtilityFallback(caster, card) {
 
 function resolveUtilityCardInstant(caster, card, target, comboActive = false) {
   if (card.type !== "utility") return false;
+  if (card.effect === "resource_card") {
+    const actor = caster === "me" ? state.my : state.enemy;
+    const owner = caster === "me" ? "我方" : "敌方";
+    const gain = Math.max(0.8, Number(card.effectValue) || 3);
+    const pool = actor.resources[card.element];
+    const before = pool.current;
+    pool.current = Math.min(pool.max, pool.current + gain);
+    if (caster === "me") {
+      pushDecision({
+        title: `${card.name} 采气`,
+        resource: pool.current - before,
+        note: `${ELEMENT_NAME[card.element]}资源快速补给`
+      });
+    }
+    logLine(`${owner}使用【${card.name}】：${ELEMENT_NAME[card.element]}资源 +${(pool.current - before).toFixed(1)}。`);
+    return true;
+  }
   return placeLaneEntity(caster, card, target, comboActive);
 }
 
@@ -2427,13 +2511,18 @@ function placeLaneEntity(caster, card, target, comboActive = false) {
   }
   const owner = caster === "me" ? "我方" : "敌方";
   const lane = Math.max(0, Math.min(LANE_COUNT - 1, target.lane));
-  const sideSlotDefault = caster === "me" ? 2 : 5;
-  const rawSlot = Number.isInteger(target.slot)
-    ? target.slot
-    : posToSlot(typeof target.pos === "number" ? target.pos : slotToPos(sideSlotDefault));
+  const isSummonCard = card.effect?.startsWith("summon_");
+  const sideSlotDefault = isSummonCard
+    ? (caster === "me" ? 0 : LANE_TILE_COUNT - 1)
+    : (caster === "me" ? 2 : 5);
+  const rawSlot = isSummonCard
+    ? sideSlotDefault
+    : Number.isInteger(target.slot)
+      ? target.slot
+      : posToSlot(typeof target.pos === "number" ? target.pos : slotToPos(sideSlotDefault));
   let slot = Math.max(caster === "me" ? 0 : Math.floor(LANE_TILE_COUNT / 2), Math.min(caster === "me" ? Math.floor(LANE_TILE_COUNT / 2) - 1 : LANE_TILE_COUNT - 1, rawSlot));
   const ownTowerSlot = caster === "me" ? 0 : LANE_TILE_COUNT - 1;
-  if (slot === ownTowerSlot) {
+  if (!isSummonCard && slot === ownTowerSlot) {
     slot = caster === "me" ? 1 : LANE_TILE_COUNT - 2;
   }
   const pos = slotToPos(slot);
@@ -2478,32 +2567,13 @@ function placeLaneEntity(caster, card, target, comboActive = false) {
   }
 
   if (card.effect?.startsWith("gen_")) {
-    const towerCfg = { hp: 11, reinforce: 4, primaryBoost: 0.13, splashBoost: 0.02, label: "脉塔" };
-    const existed = state.field.generators.find((g) => g.owner === caster && g.lane === lane);
-    if (existed) {
-      existed.hp = Math.min(18, existed.hp + towerCfg.reinforce);
-      existed.pos = pos;
-      existed.slot = slot;
-      existed.element = card.element;
-      existed.primaryBoost = towerCfg.primaryBoost;
-      existed.splashBoost = towerCfg.splashBoost;
-      if (caster === "me") pushDecision({ title: `${card.name} 调谐`, resource: 1.6, note: `第${lane + 1}线资源塔转为${ELEMENT_NAME[card.element]}并加固` });
-      logLine(`${owner}在 ${lane + 1} 号线调谐并加固${ELEMENT_NAME[card.element]}${towerCfg.label}。`);
-      return true;
-    }
-    state.field.generators.push({
-      id: `gen-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-      owner: caster,
-      lane,
-      slot,
-      pos,
-      element: card.element,
-      primaryBoost: towerCfg.primaryBoost,
-      splashBoost: towerCfg.splashBoost,
-      hp: towerCfg.hp
-    });
-    if (caster === "me") pushDecision({ title: `${card.name} 建立`, resource: 2.2, note: `第${lane + 1}线资源恢复获得增幅` });
-    logLine(`${owner}在 ${lane + 1} 号线建立${ELEMENT_NAME[card.element]}${towerCfg.label}。`);
+    const actor = caster === "me" ? state.my : state.enemy;
+    const gain = 3.2;
+    const pool = actor.resources[card.element];
+    const before = pool.current;
+    pool.current = Math.min(pool.max, pool.current + gain);
+    if (caster === "me") pushDecision({ title: `${card.name} 采气`, resource: pool.current - before, note: `${ELEMENT_NAME[card.element]}资源快速补给` });
+    logLine(`${owner}使用【${card.name}】：${ELEMENT_NAME[card.element]}资源 +${(pool.current - before).toFixed(1)}。`);
     return true;
   }
 
@@ -2601,6 +2671,56 @@ function placeLaneEntity(caster, card, target, comboActive = false) {
   return false;
 }
 
+function discardCardFromHand(index) {
+  if (!state.running) {
+    logLine("战斗未开始或已暂停。");
+    return;
+  }
+  if (isOnlineMode() && net.role === "guest") {
+    logLine("联机访客暂不支持本地弃卡。");
+    return;
+  }
+  if (state.pendingCast) return;
+  if (state.gameTime < state.myDiscardLockUntil) {
+    logLine(`弃卡冷却中，还需 ${(state.myDiscardLockUntil - state.gameTime).toFixed(1)} 秒。`);
+    return;
+  }
+  const card = state.my.hand[index];
+  if (!card) return;
+  const cost = getCostAfterRole(card);
+  const gain = refundFromCost(cost, 0.55);
+  const removed = state.my.hand.splice(index, 1)[0];
+  state.my.discard.push(removed);
+  const gained = applyResourceGain(state.my, gain);
+  state.myDiscardLockUntil = state.gameTime + 0.28;
+  pushDecision({
+    title: `${removed.name} 弃卡`,
+    resource: gained,
+    note: "弃卡回收部分资源"
+  });
+  logLine(`我方弃掉【${removed.name}】，回收资源 ${gained.toFixed(1)}。`);
+  clearArmedCard();
+  renderCards();
+  renderRuntime();
+}
+
+function enemyDiscardForResource() {
+  if (!state.enemy.hand.length) return false;
+  const pick = state.enemy.hand
+    .map((card, idx) => {
+      const totalCost = Object.values(card.cost || {}).reduce((sum, v) => sum + Number(v || 0), 0);
+      return { card, idx, totalCost };
+    })
+    .sort((a, b) => b.totalCost - a.totalCost)[0];
+  if (!pick) return false;
+  const gain = refundFromCost(pick.card.cost, 0.5);
+  const removed = state.enemy.hand.splice(pick.idx, 1)[0];
+  state.enemy.discard.push(removed);
+  const gained = applyResourceGain(state.enemy, gain);
+  logLine(`敌方弃掉【${removed.name}】，回收资源 ${gained.toFixed(1)}。`);
+  return true;
+}
+
 function playCardFromHand(index, triggerBtn, target = { type: "lane", lane: 1, pos: 80 }) {
   if (!state.running) {
     logLine("战斗未开始或已暂停。");
@@ -2612,6 +2732,10 @@ function playCardFromHand(index, triggerBtn, target = { type: "lane", lane: 1, p
     return;
   }
   if (state.pendingCast) return;
+  if (state.gameTime < state.myDiscardLockUntil) {
+    logLine(`弃卡后硬直中，还需 ${(state.myDiscardLockUntil - state.gameTime).toFixed(1)} 秒。`);
+    return;
+  }
   if (state.gameTime < state.myCastLockUntil) {
     logLine(`出牌冷却中，还需 ${(state.myCastLockUntil - state.gameTime).toFixed(1)} 秒。`);
     return;
@@ -2643,7 +2767,9 @@ function playCardFromHand(index, triggerBtn, target = { type: "lane", lane: 1, p
     state.my.discard.push(used);
     const comboActive = evaluateComboOnCast("me", used);
     logComboCast("me", used, comboActive);
-    registerLaneElement("me", target.lane ?? 1, used.element);
+    if (used.effect !== "resource_card" && target?.type === "lane") {
+      registerLaneElement("me", target.lane ?? 1, used.element);
+    }
     state.castFxUntil = state.gameTime + 0.25;
     state.myCastLockUntil = state.gameTime + 0.9;
     if (!resolveUtilityCardInstant("me", used, target, comboActive)) {
@@ -2667,7 +2793,9 @@ function playEnemyCardByIndex(index, target = { type: "lane", lane: 1, pos: 20 }
   state.enemy.discard.push(used);
   const comboActive = evaluateComboOnCast("enemy", used);
   logComboCast("enemy", used, comboActive);
-  registerLaneElement("enemy", target.lane ?? 1, used.element);
+  if (used.effect !== "resource_card" && target?.type === "lane") {
+    registerLaneElement("enemy", target.lane ?? 1, used.element);
+  }
   if (!resolveUtilityCardInstant("enemy", used, target, comboActive)) {
     if (used.type === "attack") scheduleAttackWithSpread("enemy", used, target, comboActive);
     else scheduleAction("enemy", used, target, comboActive);
@@ -2881,39 +3009,77 @@ function endPointerDrag(ev) {
 function enemyPlayLogic() {
   if (state.gameTime < state.enemyCastLockUntil) return;
   const playable = state.enemy.hand
-    .map((card, idx) => ({ card, idx }))
-    .filter(({ card }) => canPay(state.enemy, card.cost));
-  if (!playable.length) return;
+    .map((card, idx) => ({ card, idx, cost: getCostAfterRole(card) }))
+    .filter(({ cost }) => canPay(state.enemy, cost));
+  if (!playable.length) {
+    enemyDiscardForResource();
+    return;
+  }
 
   const threat = pickHighestThreatProjectile("me");
   const needUrgentIntercept = threat && (threat.dueAt - state.gameTime) <= 1.7;
   const comboReadyKey = state.enemy.combo?.expiresAt > state.gameTime ? state.enemy.combo.key : "";
   const pattern = getPlayerPatternWeights();
+  const hpLead = state.enemyHp - state.myHp;
+  const aggression = Math.max(0.35, Math.min(1.35, 0.75 + hpLead / 90 + (state.myHp <= 30 ? 0.25 : 0) - (state.enemyHp <= 30 ? 0.2 : 0)));
+  const defenseBias = Math.max(0.55, Math.min(1.6, 1.15 - aggression + (needUrgentIntercept ? 0.35 : 0)));
+
+  function lanePressureToEnemy(lane) {
+    const myQueue = state.queue.filter((x) => x.from === "me" && x.lane === lane);
+    const mySoon = myQueue.filter((x) => x.dueAt - state.gameTime <= 2.3).length;
+    const myAtkSoon = myQueue.filter((x) => x.type === "attack" && x.dueAt - state.gameTime <= 2.8).length;
+    const mySummons = state.field.summons.filter((x) => x.owner === "me" && x.lane === lane).length;
+    const enemySummons = state.field.summons.filter((x) => x.owner === "enemy" && x.lane === lane).length;
+    const myTower = state.field.arrowTowers.find((x) => x.owner === "me" && x.lane === lane && x.hp > 0);
+    const enemyTower = state.field.arrowTowers.find((x) => x.owner === "enemy" && x.lane === lane && x.hp > 0);
+    const myWalls = state.field.walls.filter((x) => x.owner === "me" && x.lane === lane);
+    const frontlineHp = myWalls.reduce((sum, x) => sum + x.hp, 0) + (myTower ? myTower.hp * 1.1 : 0) + mySummons * 3.5;
+    const retaliation = (enemyTower ? enemyTower.hp * 0.08 : 0) + enemySummons * 2.8;
+    return { mySoon, myAtkSoon, frontlineHp, retaliation };
+  }
+
+  function estimateFollowupPlayableCount(useIdx, useCost) {
+    const rem = {};
+    ELEMENTS.forEach((e) => {
+      rem[e] = Math.max(0, state.enemy.resources[e].current - (useCost[e] || 0));
+    });
+    return state.enemy.hand
+      .map((card, idx) => ({ card, idx, cost: getCostAfterRole(card) }))
+      .filter(({ idx }) => idx !== useIdx)
+      .filter(({ cost }) => Object.entries(cost).every(([k, v]) => rem[k] >= v))
+      .length;
+  }
 
   function laneCounts(owner, lane) {
     return {
       q: state.queue.filter((x) => x.from === owner && x.lane === lane).length,
       sum: state.field.summons.filter((x) => x.owner === owner && x.lane === lane).length,
-      gen: state.field.generators.filter((x) => x.owner === owner && x.lane === lane).length,
+      gen: 0,
       trap: state.field.traps.filter((x) => x.owner === owner && x.lane === lane).length,
       tower: state.field.arrowTowers.filter((x) => x.owner === owner && x.lane === lane && x.hp > 0).length
     };
   }
 
-  function scorePlay(card, lane) {
+  function scorePlay(card, lane, idx, cost) {
     const laneRef = getLaneRef(lane);
     const meLane = laneCounts("me", lane);
     const enemyLane = laneCounts("enemy", lane);
+    const laneP = lanePressureToEnemy(lane);
     const mePressure = meLane.q * 1.7 + meLane.sum * 2.2 + meLane.gen * 1.1 + meLane.tower * 1.3;
     const enemyHold = enemyLane.q * 1.2 + enemyLane.sum * 1.7 + enemyLane.trap * 0.8 + enemyLane.tower * 1.1;
     const comboReady = !!(card.comboConsumer && comboReadyKey === card.comboConsumer);
     const lowHp = state.enemyHp <= 34;
     const killWindow = state.myHp <= 30;
+    const costTotal = Object.values(cost || {}).reduce((sum, v) => sum + Number(v || 0), 0);
+    const followup = estimateFollowupPlayableCount(idx, cost);
     let score = 0;
 
     if (card.type === "attack") {
       score += 10 + (card.power || 5) * 0.7;
       score += mePressure * 1.2;
+      score += aggression * 4.2;
+      score += laneP.frontlineHp > 0 ? (9.5 / Math.max(4, laneP.frontlineHp)) : 2.2;
+      if (state.myHp <= Math.max(6, (card.power || 0) + 3)) score += 14;
       if (threat && canIntercept(card)) score += 3 + interceptFitScore(card, threat) * 0.55;
       if (state.enemy.nextAttackSpread > 1) score += 6;
       if (comboReady) score += 8;
@@ -2927,20 +3093,22 @@ function enemyPlayLogic() {
       score += threat ? 12 : 4;
       if (threat) score += interceptFitScore(card, threat) * 0.85;
       score += mePressure * 0.6;
+      score += defenseBias * (laneP.myAtkSoon * 2.6 + laneP.mySoon * 1.2);
       if (lowHp) score += 2.5;
       if (comboReady) score += 6;
       score += pattern.attack * 3.2;
       score += pattern.summon * 2.4;
     } else if (card.type === "utility") {
-      if (card.effect?.startsWith("gen_")) {
+      if (card.effect === "resource_card" || card.effect?.startsWith("gen_")) {
         const resNow = state.enemy.resources[card.element].current;
-        score += resNow < 2.8 ? 9 : 4;
-        if (enemyLane.gen > 0) score -= 1.8;
+        score += resNow < 2.6 ? 10 : 2.2;
+        score += followup <= 1 ? 3.2 : 0;
         if (lowHp) score += 1.2;
         score -= pattern.attack * 1.4;
       } else if (card.effect?.startsWith("summon_")) {
         score += 8 + mePressure * 0.4;
         if (enemyHold > 4) score -= 1.2;
+        score += Math.max(0, (8 - laneP.frontlineHp) * 0.45);
         if (lowHp) score += 2;
         if (comboReady) score += 7;
         score += pattern.control * 1.1;
@@ -2969,6 +3137,9 @@ function enemyPlayLogic() {
       }
     }
 
+    score += followup * 1.35;
+    score -= costTotal * 0.8;
+    if (costTotal === 0) score += 1.2;
     if (comboReady) score += 2;
     return score - laneRiskForEnemy(lane) * 0.8;
   }
@@ -2978,7 +3149,7 @@ function enemyPlayLogic() {
     const card = pick.card;
     const laneOptions = [0, 1, 2];
     laneOptions.forEach((lane) => {
-      const sc = scorePlay(card, lane);
+      const sc = scorePlay(card, lane, pick.idx, pick.cost);
       if (!best || sc > best.score) {
         best = { pick, lane, score: sc };
       }
@@ -3001,17 +3172,20 @@ function enemyPlayLogic() {
   }
 
   const target = { type: "lane", lane: targetLane, pos: 20 };
-  payCost(state.enemy, pick.card.cost);
+  payCost(state.enemy, pick.cost);
   const used = state.enemy.hand.splice(pick.idx, 1)[0];
   state.enemy.discard.push(used);
   const comboActive = evaluateComboOnCast("enemy", used);
   logComboCast("enemy", used, comboActive);
-  registerLaneElement("enemy", target.lane ?? 1, used.element);
+  if (used.effect !== "resource_card" && target?.type === "lane") {
+    registerLaneElement("enemy", target.lane ?? 1, used.element);
+  }
   if (!resolveUtilityCardInstant("enemy", used, target, comboActive)) {
     if (used.type === "attack") scheduleAttackWithSpread("enemy", used, target, comboActive);
     else scheduleAction("enemy", used, target, comboActive);
   }
-  state.enemyCastLockUntil = state.gameTime + 1.05;
+  const castGap = Object.keys(pick.cost || {}).length === 0 ? 0.72 : 1.05;
+  state.enemyCastLockUntil = state.gameTime + castGap;
 }
 
 function laneRiskForEnemy(lane) {
@@ -3027,13 +3201,11 @@ function laneRiskForEnemy(lane) {
 
 function chooseEnemyLane(preferredLane = null, card = null) {
   const myWalls = state.field.walls.filter((w) => w.owner === "me");
-  const myGens = state.field.generators.filter((g) => g.owner === "me");
   const myTowers = state.field.arrowTowers.filter((t) => t.owner === "me" && t.hp > 0);
   const mySummons = state.field.summons.filter((s) => s.owner === "me");
-  if (card?.type === "attack" && (myWalls.length > 0 || myGens.length > 0 || myTowers.length > 0 || mySummons.length > 0)) {
+  if (card?.type === "attack" && (myWalls.length > 0 || myTowers.length > 0 || mySummons.length > 0)) {
     const structures = [
       ...myWalls.map((x) => ({ lane: x.lane, hp: x.hp })),
-      ...myGens.map((x) => ({ lane: x.lane, hp: x.hp * 0.9 })),
       ...myTowers.map((x) => ({ lane: x.lane, hp: x.hp * 1.15 })),
       ...mySummons.map((x) => ({ lane: x.lane, hp: x.hp * 0.85 }))
     ];
@@ -3518,12 +3690,13 @@ function renderCards() {
   const view = getHandViewIndices();
   el.hand.innerHTML = view.map(({ card: c, idx: i }) => {
     const cost = getCostAfterRole(c);
-    const affordable = canPay(state.my, cost) && state.running && !state.pendingCast && state.gameTime >= state.myCastLockUntil;
+    const affordable = canPay(state.my, cost) && state.running && !state.pendingCast && state.gameTime >= state.myCastLockUntil && state.gameTime >= state.myDiscardLockUntil;
     const manaTotal = Object.values(cost).reduce((sum, v) => sum + Number(v || 0), 0);
     const sealText = c.type === "attack" ? "战" : c.type === "control" ? "策" : c.type === "defense" ? "御" : "机";
     const costText = Object.entries(cost)
       .map(([k, v]) => `${ELEMENT_NAME[k]}:${v}`)
       .join(" ");
+    const costLine = costText || "无消耗";
 
     return `
       <div class="card ${c.element} ${c.type} ${affordable ? "drag-ready" : "drag-disabled"} ${state.armedCardIndex === i ? "armed-card" : ""}" data-idx="${i}" draggable="false">
@@ -3543,7 +3716,8 @@ function renderCards() {
         </div>
         ${c.comboStarter ? `<div class="card-combo">起手连携：${c.comboLabel}</div>` : ""}
         ${c.comboConsumer ? `<div class="card-combo">终结连携：${c.comboLabel}</div>` : ""}
-        <div class="card-cost-line">消耗：${costText}</div>
+        <div class="card-cost-line">消耗：${costLine}</div>
+        <button class="card-discard" data-discard="${i}" type="button">弃卡回能</button>
         <div class="drag-tip">${affordable ? "拖拽到通道格子使用" : "资源不足/冷却中"}</div>
       </div>
     `;
@@ -3580,6 +3754,17 @@ function renderCards() {
       if (state.armedCardIndex === null) renderTimeline();
     });
   });
+
+  el.hand.querySelectorAll(".card-discard[data-discard]").forEach((btn) => {
+    btn.addEventListener("pointerdown", (ev) => {
+      ev.stopPropagation();
+    });
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const idx = Number(btn.dataset.discard);
+      discardCardFromHand(idx);
+    });
+  });
 }
 
 function updateHandAffordability() {
@@ -3594,38 +3779,47 @@ function updateHandAffordability() {
       return;
     }
     const cost = getCostAfterRole(card);
-    const affordable = state.running && !state.pendingCast && state.gameTime >= state.myCastLockUntil && canPay(state.my, cost);
+    const affordable = state.running && !state.pendingCast && state.gameTime >= state.myCastLockUntil && state.gameTime >= state.myDiscardLockUntil && canPay(state.my, cost);
     cardEl.classList.toggle("drag-ready", affordable);
     cardEl.classList.toggle("drag-disabled", !affordable);
     cardEl.setAttribute("draggable", "false");
     const tip = cardEl.querySelector(".drag-tip");
-    if (tip) tip.textContent = affordable ? "拖拽到通道格子使用" : "资源不足/冷却中";
+    if (tip) tip.textContent = affordable ? "拖拽到通道格子使用" : "资源不足/冷却中，可弃卡回能";
   });
 }
 
 function renderResources() {
+  if (!el.resourceBoard) return;
   el.resourceBoard.innerHTML = ELEMENTS.map((e) => {
     const cur = state.my.resources[e].current;
     const max = state.my.resources[e].max;
     const pct = (cur / max) * 100;
-    const towerBonus = getGeneratorBonusForElement("me", e);
     return `
-      <div class="res-card ${e}">
-        <div class="res-head">
-          <span class="res-glyph">${ELEMENT_NAME[e]}</span>
-          <span>${ELEMENT_NAME[e]}元素</span>
+      <div class="res-mini ${e}" title="${ELEMENT_NAME[e]} ${cur.toFixed(1)} / ${max}">
+        <div class="res-mini-head">
+          <span class="res-mini-glyph">${ELEMENT_ICON[e]}</span>
+          <span>${ELEMENT_NAME[e]}</span>
         </div>
-        <div class="res-bar"><span style="width:${pct}%"></span></div>
-        <div class="res-text">${cur.toFixed(1)} / ${max}</div>
-        <div class="res-text">塔增益 +${towerBonus.toFixed(2)}/s</div>
+        <div class="res-mini-bar"><span style="width:${pct}%"></span></div>
+        <div class="res-mini-text">${cur.toFixed(1)}/${max}</div>
       </div>
     `;
   }).join("");
 }
 
-function laneTrackText(arr) {
-  if (!arr || arr.length === 0) return "-";
-  return arr.map((e) => ELEMENT_NAME[e] || "?").join(" ");
+function renderRecentElements() {
+  if (!el.recentElements) return;
+  if (!state.sharedRecentElements.length) {
+    el.recentElements.innerHTML = '<div class="recent-empty">-</div>';
+    return;
+  }
+  el.recentElements.innerHTML = state.sharedRecentElements
+    .map((element) => `
+      <div class="recent-element" title="战线元素：${ELEMENT_NAME[element]}">
+        <span class="recent-icon">${ELEMENT_ICON[element]}</span>
+      </div>
+    `)
+    .join("");
 }
 
 function renderTimeline() {
@@ -3645,6 +3839,7 @@ function renderTimeline() {
     const reco = state.laneReco?.lanes?.includes(lane);
     const recoScore = state.laneReco?.scoreByLane?.[lane] ?? 0;
     const recoReason = state.laneReco?.reasonByLane?.[lane] || "";
+    const laneTitle = `${theme.name}｜地形:${hzLabel}｜${meBonusText}｜${enemyBonusText}｜${meAuraText}｜${enemyAuraText}${reco ? `｜推荐:${recoReason}` : ""}`;
     const actions = state.queue
       .filter((q) => q.lane === lane)
       .sort((a, b) => a.dueAt - b.dueAt)
@@ -3729,13 +3924,11 @@ function renderTimeline() {
     return `
       <div class="lane-row lane-theme-${lane + 1}">
         <div class="lane-label">
-          <span class="lane-mark">${theme.mark}</span>
-          <span class="lane-name">${theme.name}</span><br>
-          <span class="lane-hazard ${hz}">${hzLabel}</span>
-          <span class="lane-reco-tag ${reco ? "show" : ""}" title="${recoReason}">${reco ? `推荐 ${recoScore.toFixed(1)}` : ""}</span>
-          <span class="lane-accum">我:${laneTrackText(laneRef.meTrack)} | 敌:${laneTrackText(laneRef.enemyTrack)}</span>
-          <span class="lane-accum">${meBonusText} | ${enemyBonusText}</span>
-          <span class="lane-accum">${meAuraText} | ${enemyAuraText}</span>
+          <button class="lane-pill ${reco ? "reco" : ""}" type="button" tabindex="-1" title="${laneTitle}">
+            <span class="lane-pill-mark">${theme.mark}</span>
+            <span class="lane-pill-hazard ${hz}">${hz === "frost" ? "❄" : hz === "blaze" ? "🔥" : "◌"}</span>
+            <span class="lane-pill-reco">${reco ? `★${recoScore.toFixed(1)}` : ""}</span>
+          </button>
         </div>
         <div class="lane-row-track drop-lane ${hz} ${reco ? "lane-recommended" : ""}" data-lane="${lane}" title="${reco ? recoReason : ""}">
           <div class="lane-tiles">${tiles}</div>
@@ -3839,7 +4032,11 @@ function renderStatus() {
   el.tick.textContent = `${state.gameTime.toFixed(1)}s`;
   el.deckInfo.textContent = `${state.my.deck.length} / ${state.my.discard.length}`;
   el.handCount.textContent = `${state.my.hand.length}`;
-  const cd = Math.max(0, state.myCastLockUntil - state.gameTime);
+  const cd = Math.max(
+    0,
+    state.myCastLockUntil - state.gameTime,
+    state.myDiscardLockUntil - state.gameTime
+  );
   el.castCd.textContent = `${cd.toFixed(1)}s`;
   if (el.eventName) el.eventName.textContent = `${state.battlefieldEvent.name}`;
   if (el.battleAlert) {
@@ -3886,6 +4083,7 @@ function renderRuntime() {
   updateLaneRecommendation();
   if (el.handIntel) el.handIntel.textContent = state.laneReco.text;
   renderResources();
+  renderRecentElements();
   updateHandAffordability();
   renderTimeline();
   renderEnv();
@@ -3992,27 +4190,6 @@ if (el.btnDeckDefault) {
     saveDeckBuilderCache();
     renderDeckBuilder();
     logLine("已恢复默认卡组。");
-  });
-}
-if (el.handFilterType) {
-  el.handFilterType.addEventListener("change", () => {
-    state.handFilter.type = el.handFilterType.value || "all";
-    renderCards();
-    renderRuntime();
-  });
-}
-if (el.handFilterElement) {
-  el.handFilterElement.addEventListener("change", () => {
-    state.handFilter.element = el.handFilterElement.value || "all";
-    renderCards();
-    renderRuntime();
-  });
-}
-if (el.handSearch) {
-  el.handSearch.addEventListener("input", () => {
-    state.handFilter.search = el.handSearch.value || "";
-    renderCards();
-    renderRuntime();
   });
 }
 if (el.btnModeLocal) el.btnModeLocal.addEventListener("click", switchToLocalMode);

@@ -87,6 +87,8 @@
           <button id="btnNext" class="btn">暂停</button>
         </div>
         <div class="battle-tools">
+          <button id="btnDecisionPanel" class="btn" type="button">策略</button>
+          <button id="btnLogPanel" class="btn" type="button">日志</button>
           <label class="battle-tool">
             <span>演算速度</span>
             <select id="battleSpeed" class="battle-select">
@@ -101,16 +103,6 @@
 
       <section class="battle-layout">
         <aside class="battle-side battle-left">
-          <article class="panel drawer open" data-drawer="resource">
-            <div class="drawer-head">
-              <h2>资源</h2>
-              <button class="btn drawer-toggle" data-drawer-toggle type="button" aria-expanded="true">收起</button>
-            </div>
-            <div class="drawer-content">
-              <div id="resourceBoard" class="resource-board"></div>
-            </div>
-          </article>
-
           <article class="panel decision-panel drawer" data-drawer="decision">
             <div class="drawer-head">
               <h2>决策回放</h2>
@@ -134,71 +126,59 @@
 
         <div class="battle-main">
           <div id="battleAlert" class="battle-alert" aria-live="polite"></div>
-          <article class="panel status-panel compact">
-            <div class="status-row">
-              <div class="hp-box hero-stat my-side">
-                <div class="hero-portrait">我</div>
-                <div class="hero-info">
-                  <span>我方生命</span>
-                  <strong id="myHp"></strong>
-                  <div class="hero-hpbar"><span id="myHpBar"></span></div>
-                  <em id="myRoleName" class="hero-role">未选流派</em>
-                </div>
-              </div>
-              <div class="hp-box hero-stat enemy-side">
-                <div class="hero-portrait">敌</div>
-                <div class="hero-info">
-                  <span>敌方生命</span>
-                  <strong id="enemyHp"></strong>
-                  <div class="hero-hpbar"><span id="enemyHpBar"></span></div>
-                  <em id="enemyRoleName" class="hero-role">战域傀儡</em>
-                </div>
-              </div>
-              <div class="hp-box status-chip"><span>时间</span><strong id="tick"></strong></div>
-              <div class="hp-box status-chip"><span>牌库/弃牌</span><strong id="deckInfo"></strong></div>
-              <div class="hp-box status-chip"><span>手牌</span><strong id="handCount"></strong></div>
-              <div class="hp-box status-chip"><span>冷却</span><strong id="castCd"></strong></div>
-              <div class="hp-box status-chip"><span>事件</span><strong id="eventName"></strong></div>
-            </div>
-          </article>
 
           <article class="panel panel-wide">
             <h2>战线</h2>
             <p class="hint">通道改为上下推进：我方由下向上进攻，敌方由上向下推进。</p>
-            <div id="timeline" class="timeline"></div>
+            <div class="battle-scene">
+              <div class="lane-battle-hud">
+                <div class="scene-hp enemy-side">
+                  <div class="hero-portrait">敌</div>
+                  <div class="hero-info">
+                    <span>敌方生命</span>
+                    <strong id="enemyHp"></strong>
+                    <div class="hero-hpbar"><span id="enemyHpBar"></span></div>
+                    <em id="enemyRoleName" class="hero-role">战域傀儡</em>
+                  </div>
+                </div>
+                <div class="scene-hp my-side">
+                  <div class="hero-portrait">我</div>
+                  <div class="hero-info">
+                    <span>我方生命</span>
+                    <strong id="myHp"></strong>
+                    <div class="hero-hpbar"><span id="myHpBar"></span></div>
+                    <em id="myRoleName" class="hero-role">未选流派</em>
+                  </div>
+                </div>
+              </div>
+              <div id="timeline" class="timeline"></div>
+            </div>
+            <div class="battle-merge-divider"></div>
+            <div class="battle-hand-inline">
+              <h2>手牌</h2>
+              <div class="hand-meta-row">
+                <div class="hand-meta-card">
+                  <span class="hand-meta-title">资源</span>
+                  <div id="resourceBoard" class="resource-strip"></div>
+                </div>
+                <div class="hand-meta-card">
+                  <span class="hand-meta-title">最近元素（敌我共用）</span>
+                  <div id="recentElements" class="recent-elements"></div>
+                </div>
+              </div>
+              <div class="mini-runtime">
+                <div class="mini-chip"><span>时间</span><strong id="tick"></strong></div>
+                <div class="mini-chip"><span>牌库/弃牌</span><strong id="deckInfo"></strong></div>
+                <div class="mini-chip"><span>手牌</span><strong id="handCount"></strong></div>
+                <div class="mini-chip"><span>冷却</span><strong id="castCd"></strong></div>
+                <div class="mini-chip"><span>事件</span><strong id="eventName"></strong></div>
+              </div>
+              <div id="handIntel" class="hand-intel">选中或悬停手牌后，将显示推荐出牌线。</div>
+              <div id="hand" class="card-list"></div>
+            </div>
           </article>
         </div>
 
-      </section>
-
-      <section class="battle-hand-dock panel">
-        <h2>手牌</h2>
-        <div class="hand-tools">
-          <label class="hand-filter">
-            <span>类型</span>
-            <select id="handFilterType">
-              <option value="all">全部</option>
-              <option value="attack">攻击</option>
-              <option value="control">控制</option>
-              <option value="defense">防御</option>
-              <option value="utility">功能</option>
-            </select>
-          </label>
-          <label class="hand-filter">
-            <span>元素</span>
-            <select id="handFilterElement">
-              <option value="all">全部</option>
-              <option value="wood">木</option>
-              <option value="fire">火</option>
-              <option value="earth">土</option>
-              <option value="metal">金</option>
-              <option value="water">水</option>
-            </select>
-          </label>
-          <input id="handSearch" class="hand-search" type="text" placeholder="搜索卡名" />
-        </div>
-        <div id="handIntel" class="hand-intel">选中或悬停手牌后，将显示推荐出牌线。</div>
-        <div id="hand" class="card-list"></div>
       </section>
     </section>
   </main>

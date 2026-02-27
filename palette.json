@@ -1,0 +1,56 @@
+{
+  "meta": {
+    "name": "Wuxing Battle Dark Guofeng",
+    "version": "1.0.0",
+    "usage": "UI tokens for combat screen and card system"
+  },
+  "base": {
+    "bg_root_top": "#201812",
+    "bg_root_bottom": "#15100d",
+    "ink_primary": "#231d18",
+    "paper_warm": "#f1e6cc"
+  },
+  "text": {
+    "text_primary": "#f2ede2",
+    "text_secondary": "#d8c29c",
+    "text_muted": "#a99676",
+    "text_on_dark_warm": "#ffe2b9"
+  },
+  "panel": {
+    "panel_bg": "rgba(45, 33, 23, 0.78)",
+    "panel_bg_deep": "rgba(23, 17, 12, 0.78)",
+    "panel_border": "rgba(197, 160, 105, 0.34)",
+    "panel_border_strong": "rgba(226, 192, 132, 0.82)"
+  },
+  "status": {
+    "danger_bg": "rgba(82, 36, 31, 0.45)",
+    "danger_border": "rgba(238, 130, 114, 0.70)",
+    "danger_text": "#ffd8cf",
+    "hot_bg": "rgba(92, 54, 24, 0.48)",
+    "hot_border": "rgba(247, 176, 114, 0.78)",
+    "hot_text": "#ffe2bf",
+    "adv_bg": "rgba(31, 67, 38, 0.44)",
+    "adv_border": "rgba(156, 225, 173, 0.74)",
+    "adv_text": "#ddf8df",
+    "warn_border": "rgba(220, 193, 131, 0.62)",
+    "warn_text": "#f4e4c7"
+  },
+  "element": {
+    "wood": "#4da85a",
+    "fire": "#de5b44",
+    "earth": "#b28a4f",
+    "metal": "#99a4af",
+    "water": "#4d86c2"
+  },
+  "lane": {
+    "lane_frost": "#5f86a8",
+    "lane_blaze": "#9a6258",
+    "lane_recommended": "#d9b97d"
+  },
+  "control": {
+    "btn_bg": "rgba(52, 35, 21, 0.76)",
+    "btn_bg_hover": "rgba(74, 49, 28, 0.86)",
+    "btn_border": "rgba(205, 167, 114, 0.58)",
+    "btn_border_hover": "rgba(236, 201, 141, 0.80)"
+  }
+}

@@ -2815,3 +2815,158 @@ body.reduced-fx .bg-shape {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* Cartoon Theme Refresh */
+body {
+  font-family: "YouYuan", "Comic Sans MS", "Chalkboard SE", "Microsoft YaHei", sans-serif;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'%3E%3Cg fill='none' stroke='rgba(255,255,255,0.14)' stroke-width='2'%3E%3Cpath d='M30 150c18-22 42-24 57-5 17-20 44-22 62 0 17-15 37-12 50 8'/%3E%3Cpath d='M18 78c12-14 28-16 39-3 10-12 24-13 34 0 10-9 22-7 30 5'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(circle at 12% 14%, rgba(255, 210, 170, 0.18), transparent 34%),
+    radial-gradient(circle at 85% 6%, rgba(255, 185, 185, 0.14), transparent 26%),
+    radial-gradient(circle at 52% 100%, rgba(170, 215, 255, 0.15), transparent 35%),
+    linear-gradient(180deg, #26324d 0%, #1d2940 100%);
+  background-size: 260px 260px, auto, auto, auto, auto;
+}
+
+.panel {
+  border: 2px solid rgba(255, 235, 190, 0.4);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.03)),
+    rgba(46, 62, 94, 0.74);
+  box-shadow: 0 8px 18px rgba(14, 19, 33, 0.28);
+}
+
+.btn {
+  border: 2px solid rgba(255, 225, 170, 0.58);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 233, 189, 0.26), rgba(255, 205, 155, 0.14));
+  color: #fff5df;
+}
+
+.btn:hover {
+  border-color: rgba(255, 237, 194, 0.78);
+  background: linear-gradient(180deg, rgba(255, 241, 205, 0.34), rgba(255, 214, 169, 0.2));
+}
+
+.battle-select {
+  border: 2px solid rgba(255, 219, 151, 0.68);
+  border-radius: 10px;
+  background: rgba(33, 45, 73, 0.92);
+}
+
+.lane-row-track {
+  border: 2px solid rgba(202, 227, 255, 0.35);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(171, 213, 250, 0.13), rgba(141, 179, 233, 0.1)),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0, rgba(255, 255, 255, 0.045) 18px, transparent 18px, transparent 36px);
+}
+
+.scene-hp {
+  border: 2px solid rgba(255, 228, 162, 0.7);
+  border-radius: 14px;
+  background: rgba(35, 48, 78, 0.9);
+}
+
+.card {
+  border: 3px solid rgba(255, 228, 182, 0.72);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 238, 0.2), rgba(255, 250, 238, 0.06) 30%),
+    linear-gradient(180deg, #4c6998, #39557f);
+  box-shadow:
+    0 0 0 2px rgba(255, 240, 198, 0.18) inset,
+    0 10px 18px rgba(16, 24, 41, 0.3);
+}
+
+.card-title {
+  color: #fff1cf;
+  text-shadow: 0 2px 0 rgba(31, 39, 63, 0.75);
+}
+
+.card-instant-tag {
+  position: absolute;
+  right: 10px;
+  top: 34px;
+  border: 2px solid rgba(198, 241, 255, 0.8);
+  border-radius: 999px;
+  background: rgba(84, 150, 212, 0.88);
+  color: #effbff;
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 7px;
+  letter-spacing: 0.2px;
+  box-shadow: 0 4px 8px rgba(28, 67, 104, 0.32);
+}
+
+.card-art {
+  border-radius: 44% 44% 36% 36%;
+  background:
+    radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0)),
+    linear-gradient(180deg, rgba(169, 201, 255, 0.55), rgba(89, 132, 205, 0.6));
+}
+
+.card-textbox {
+  border: 2px solid rgba(209, 226, 255, 0.45);
+  border-radius: 12px;
+  background: rgba(28, 43, 72, 0.86);
+}
+
+.card-discard {
+  border: 2px solid rgba(255, 213, 141, 0.72);
+  border-radius: 10px;
+  background: rgba(61, 83, 132, 0.86);
+}
+
+.mini-chip,
+.hand-meta-card,
+.res-mini,
+.recent-element,
+.lane-pill {
+  border-width: 2px;
+  border-radius: 10px;
+}
+
+.log-panel .log,
+.decision-card {
+  background: rgba(25, 36, 58, 0.76);
+  border: 2px solid rgba(186, 214, 255, 0.36);
+  border-radius: 12px;
+}
+
+/* Cartoon Vivid Variant */
+body.theme-cartoon-vivid {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'%3E%3Cg fill='none' stroke='rgba(255,255,255,0.18)' stroke-width='2'%3E%3Cpath d='M30 150c18-22 42-24 57-5 17-20 44-22 62 0 17-15 37-12 50 8'/%3E%3Cpath d='M18 78c12-14 28-16 39-3 10-12 24-13 34 0 10-9 22-7 30 5'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(circle at 12% 14%, rgba(255, 212, 146, 0.24), transparent 34%),
+    radial-gradient(circle at 85% 6%, rgba(255, 168, 168, 0.2), transparent 26%),
+    radial-gradient(circle at 52% 100%, rgba(145, 210, 255, 0.2), transparent 35%),
+    linear-gradient(180deg, #223153 0%, #162445 100%);
+}
+
+body.theme-cartoon-vivid .panel {
+  border-color: rgba(255, 226, 165, 0.56);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04)),
+    rgba(42, 59, 96, 0.82);
+}
+
+body.theme-cartoon-vivid .btn {
+  border-color: rgba(255, 221, 150, 0.72);
+  background: linear-gradient(180deg, rgba(255, 233, 178, 0.34), rgba(255, 194, 138, 0.2));
+}
+
+body.theme-cartoon-vivid .lane-row-track {
+  border-color: rgba(194, 223, 255, 0.48);
+  background:
+    linear-gradient(180deg, rgba(174, 219, 255, 0.2), rgba(131, 173, 244, 0.14)),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0, rgba(255, 255, 255, 0.06) 18px, transparent 18px, transparent 36px);
+}
+
+body.theme-cartoon-vivid .card {
+  border-color: rgba(255, 223, 160, 0.88);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 238, 0.22), rgba(255, 250, 238, 0.06) 30%),
+    linear-gradient(180deg, #406299, #2b4578);
+}

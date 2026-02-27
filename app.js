@@ -44,6 +44,49 @@ const EVENT_ROTATION = [
   }
 ];
 
+const AI_DIFFICULTY = {
+  easy: {
+    label: "简单",
+    thinkInterval: 1.08,
+    scoreMul: 0.88,
+    defenseBiasAdd: -0.08,
+    urgencyIntercept: 1.45,
+    castGapMul: 1.14,
+    zeroCostGap: 0.86,
+    discardRefund: 0.42
+  },
+  normal: {
+    label: "普通",
+    thinkInterval: 0.78,
+    scoreMul: 1,
+    defenseBiasAdd: 0,
+    urgencyIntercept: 1.7,
+    castGapMul: 1,
+    zeroCostGap: 0.72,
+    discardRefund: 0.5
+  },
+  hard: {
+    label: "困难",
+    thinkInterval: 0.62,
+    scoreMul: 1.14,
+    defenseBiasAdd: 0.08,
+    urgencyIntercept: 1.95,
+    castGapMul: 0.9,
+    zeroCostGap: 0.58,
+    discardRefund: 0.56
+  },
+  nightmare: {
+    label: "噩梦",
+    thinkInterval: 0.5,
+    scoreMul: 1.28,
+    defenseBiasAdd: 0.12,
+    urgencyIntercept: 2.2,
+    castGapMul: 0.84,
+    zeroCostGap: 0.5,
+    discardRefund: 0.62
+  }
+};
+
 function createLaneState() {
   return Array.from({ length: LANE_COUNT }, () => ({
     meTrack: [],
@@ -53,6 +96,10 @@ function createLaneState() {
     meAura: { element: "", expiresAt: 0, damageMul: 1 },
     enemyAura: { element: "", expiresAt: 0, damageMul: 1 }
   }));
+}
+
+function getAiProfile() {
+  return AI_DIFFICULTY[state.aiDifficulty] || AI_DIFFICULTY.normal;
 }
 
 const ROLE_LIST = [
@@ -581,6 +628,8 @@ const state = {
   gameTime: 0,
   running: false,
   simSpeed: 1,
+  aiDifficulty: "normal",
+  cartoonTheme: "soft",
   reducedFx: false,
   lastStamp: 0,
   rafId: null,
@@ -724,8 +773,10 @@ const el = {
   netOnlineBox: document.getElementById("netOnlineBox"),
   btnBackPrep: document.getElementById("btnBackPrep"),
   btnNext: document.getElementById("btnNext"),
+  aiDifficulty: document.getElementById("aiDifficulty"),
   battleSpeed: document.getElementById("battleSpeed"),
   btnFxLite: document.getElementById("btnFxLite"),
+  btnThemeCartoon: document.getElementById("btnThemeCartoon"),
   btnDecisionPanel: document.getElementById("btnDecisionPanel"),
   btnLogPanel: document.getElementById("btnLogPanel"),
   dragLine: null,
@@ -836,6 +887,13 @@ function clearArmedCard() {
   if (el.handIntel) el.handIntel.textContent = state.laneReco.text;
   renderCards();
   renderTimeline();
+}
+
+function cardNeedsLaneTarget(card) {
+  if (!card) return true;
+  if (card.effect === "resource_card") return false;
+  if (card.effect === "spell_spread_2" || card.effect === "spell_spread_3") return false;
+  return true;
 }
 
 function getHandViewIndices() {
@@ -1017,6 +1075,15 @@ function refreshNetUI() {
 }
 
 function updateBattleControlState() {
+  document.body.classList.toggle("theme-cartoon-vivid", state.cartoonTheme === "vivid");
+  if (el.btnThemeCartoon) {
+    el.btnThemeCartoon.textContent = `风格：${state.cartoonTheme === "vivid" ? "鲜明" : "柔和"}`;
+  }
+  if (el.aiDifficulty) {
+    el.aiDifficulty.value = state.aiDifficulty;
+    el.aiDifficulty.disabled = isOnlineMode();
+    el.aiDifficulty.title = isOnlineMode() ? "联机模式下由房主战局决定" : "";
+  }
   if (el.battleSpeed) {
     el.battleSpeed.value = String(state.simSpeed);
     const lockSpeed = isOnlineMode();
@@ -1792,6 +1859,7 @@ function resetBattle() {
   drawCards("my", 5);
   drawCards("enemy", 5);
   rollLaneHazards();
+  logLine(`当前AI难度：${getAiProfile().label}。`);
   logLine(`地形异常：${state.field.hazards.map((h, i) => `第${i + 1}线${hazardName(h.type)}`).join(" / ")}`);
   logLine(`战场事件生效：${state.battlefieldEvent.name}（${state.battlefieldEvent.desc}）`);
   logLine("实时战斗开始。双方可随时出牌，五行资源随时间恢复。" );
@@ -1869,7 +1937,7 @@ function stepSimulation(dt) {
   }
 
   state.enemyThinkTimer += simDt;
-  if (!isOnlineMode() && state.enemyThinkTimer >= 0.78) {
+  if (!isOnlineMode() && state.enemyThinkTimer >= getAiProfile().thinkInterval) {
     state.enemyThinkTimer = 0;
     enemyPlayLogic();
   }
@@ -2704,7 +2772,7 @@ function discardCardFromHand(index) {
   renderRuntime();
 }
 
-function enemyDiscardForResource() {
+function enemyDiscardForResource(aiProfile = getAiProfile()) {
   if (!state.enemy.hand.length) return false;
   const pick = state.enemy.hand
     .map((card, idx) => {
@@ -2713,7 +2781,7 @@ function enemyDiscardForResource() {
     })
     .sort((a, b) => b.totalCost - a.totalCost)[0];
   if (!pick) return false;
-  const gain = refundFromCost(pick.card.cost, 0.5);
+  const gain = refundFromCost(pick.card.cost, aiProfile.discardRefund || 0.5);
   const removed = state.enemy.hand.splice(pick.idx, 1)[0];
   state.enemy.discard.push(removed);
   const gained = applyResourceGain(state.enemy, gain);
@@ -3007,22 +3075,23 @@ function endPointerDrag(ev) {
 }
 
 function enemyPlayLogic() {
+  const ai = getAiProfile();
   if (state.gameTime < state.enemyCastLockUntil) return;
   const playable = state.enemy.hand
     .map((card, idx) => ({ card, idx, cost: getCostAfterRole(card) }))
     .filter(({ cost }) => canPay(state.enemy, cost));
   if (!playable.length) {
-    enemyDiscardForResource();
+    enemyDiscardForResource(ai);
     return;
   }
 
   const threat = pickHighestThreatProjectile("me");
-  const needUrgentIntercept = threat && (threat.dueAt - state.gameTime) <= 1.7;
+  const needUrgentIntercept = threat && (threat.dueAt - state.gameTime) <= ai.urgencyIntercept;
   const comboReadyKey = state.enemy.combo?.expiresAt > state.gameTime ? state.enemy.combo.key : "";
   const pattern = getPlayerPatternWeights();
   const hpLead = state.enemyHp - state.myHp;
   const aggression = Math.max(0.35, Math.min(1.35, 0.75 + hpLead / 90 + (state.myHp <= 30 ? 0.25 : 0) - (state.enemyHp <= 30 ? 0.2 : 0)));
-  const defenseBias = Math.max(0.55, Math.min(1.6, 1.15 - aggression + (needUrgentIntercept ? 0.35 : 0)));
+  const defenseBias = Math.max(0.55, Math.min(1.7, 1.15 - aggression + (needUrgentIntercept ? 0.35 : 0) + (ai.defenseBiasAdd || 0)));
 
   function lanePressureToEnemy(lane) {
     const myQueue = state.queue.filter((x) => x.from === "me" && x.lane === lane);
@@ -3141,7 +3210,7 @@ function enemyPlayLogic() {
     score -= costTotal * 0.8;
     if (costTotal === 0) score += 1.2;
     if (comboReady) score += 2;
-    return score - laneRiskForEnemy(lane) * 0.8;
+    return (score - laneRiskForEnemy(lane) * 0.8) * (ai.scoreMul || 1);
   }
 
   let best = null;
@@ -3184,7 +3253,7 @@ function enemyPlayLogic() {
     if (used.type === "attack") scheduleAttackWithSpread("enemy", used, target, comboActive);
     else scheduleAction("enemy", used, target, comboActive);
   }
-  const castGap = Object.keys(pick.cost || {}).length === 0 ? 0.72 : 1.05;
+  const castGap = Object.keys(pick.cost || {}).length === 0 ? (ai.zeroCostGap || 0.72) : 1.05 * (ai.castGapMul || 1);
   state.enemyCastLockUntil = state.gameTime + castGap;
 }
 
@@ -3697,6 +3766,7 @@ function renderCards() {
       .map(([k, v]) => `${ELEMENT_NAME[k]}:${v}`)
       .join(" ");
     const costLine = costText || "无消耗";
+    const instantTag = cardNeedsLaneTarget(c) ? "" : '<span class="card-instant-tag">即时</span>';
 
     return `
       <div class="card ${c.element} ${c.type} ${affordable ? "drag-ready" : "drag-disabled"} ${state.armedCardIndex === i ? "armed-card" : ""}" data-idx="${i}" draggable="false">
@@ -3706,6 +3776,7 @@ function renderCards() {
           <span class="card-seal">${sealText}</span>
         </div>
         <div class="card-title">${c.name}</div>
+        ${instantTag}
         <div class="card-art">
           <span class="card-art-icon">${getCardIcon(c)}</span>
         </div>
@@ -3736,6 +3807,11 @@ function renderCards() {
     });
     cardEl.addEventListener("click", () => {
       if (state.suppressCardClick) return;
+      const card = state.my.hand[idx];
+      if (card && !cardNeedsLaneTarget(card)) {
+        playCardFromHand(idx, null, { type: "instant" });
+        return;
+      }
       setArmedCard(idx);
     });
     cardEl.addEventListener("pointerup", () => {
@@ -4156,11 +4232,33 @@ if (el.battleSpeed) {
     logLine(`演算速度已切换为 ${state.simSpeed.toFixed(1)}x。`);
   });
 }
+if (el.aiDifficulty) {
+  el.aiDifficulty.addEventListener("change", () => {
+    const next = String(el.aiDifficulty.value || "normal");
+    if (!AI_DIFFICULTY[next]) {
+      el.aiDifficulty.value = state.aiDifficulty;
+      return;
+    }
+    state.aiDifficulty = next;
+    updateBattleControlState();
+    if (!isOnlineMode()) {
+      const ai = getAiProfile();
+      logLine(`AI难度切换为${ai.label}：决策间隔 ${ai.thinkInterval.toFixed(2)}s。`);
+    }
+  });
+}
 if (el.btnFxLite) {
   el.btnFxLite.addEventListener("click", () => {
     state.reducedFx = !state.reducedFx;
     updateBattleControlState();
     logLine(state.reducedFx ? "已启用简化特效模式。" : "已关闭简化特效模式。");
+  });
+}
+if (el.btnThemeCartoon) {
+  el.btnThemeCartoon.addEventListener("click", () => {
+    state.cartoonTheme = state.cartoonTheme === "soft" ? "vivid" : "soft";
+    updateBattleControlState();
+    logLine(`界面风格已切换为${state.cartoonTheme === "vivid" ? "鲜明卡通" : "柔和卡通"}。`);
   });
 }
 if (el.btnBackPrep) {

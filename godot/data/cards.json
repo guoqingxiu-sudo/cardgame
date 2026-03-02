@@ -1,0 +1,79 @@
+[
+  {
+	"id": "c1",
+	"name": "Blazing Strike",
+	"type": "attack",
+	"element": "fire",
+	"power": 10,
+	"base_delay": 2.4,
+	"cost": { "fire": 2 },
+	"default_copies": 2
+  },
+  {
+	"id": "c2",
+	"name": "Vine Snare",
+	"type": "control",
+	"element": "wood",
+	"effect": "slow",
+	"power": 0,
+	"base_delay": 2.8,
+	"cost": { "wood": 2 },
+	"default_copies": 2
+  },
+  {
+	"id": "c10",
+	"name": "Wood Resource",
+	"type": "utility",
+	"element": "wood",
+	"effect": "resource_card",
+	"effect_value": 3.2,
+	"power": 0,
+	"base_delay": 0.2,
+	"cost": {},
+	"default_copies": 3
+  },
+  {
+	"id": "c11",
+	"name": "Fire Resource",
+	"type": "utility",
+	"element": "fire",
+	"effect": "resource_card",
+	"effect_value": 3.2,
+	"power": 0,
+	"base_delay": 0.2,
+	"cost": {},
+	"default_copies": 3
+  },
+  {
+	"id": "c47",
+	"name": "Scout Shot",
+	"type": "attack",
+	"element": "metal",
+	"power": 3,
+	"base_delay": 2.4,
+	"cost": {},
+	"default_copies": 3
+  },
+  {
+	"id": "c48",
+	"name": "Lane Disrupt",
+	"type": "control",
+	"element": "wood",
+	"effect": "slow",
+	"power": 0,
+	"base_delay": 2.5,
+	"cost": {},
+	"default_copies": 3
+  },
+  {
+	"id": "c50",
+	"name": "Frontline Scout",
+	"type": "utility",
+	"element": "earth",
+	"effect": "summon_scout",
+	"power": 0,
+	"base_delay": 0.2,
+	"cost": {},
+	"default_copies": 2
+  }
+]

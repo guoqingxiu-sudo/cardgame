@@ -16,6 +16,7 @@ extends Control
 @onready var selected_label: Label = $UI/Actions/SelectedLabel
 @onready var log_label: RichTextLabel = $UI/Log
 @onready var discard_btn: Button = $UI/Actions/DiscardBtn
+@onready var restart_btn: Button = $UI/Actions/RestartBtn
 
 var selected_hand_index: int = -1
 var lane_track_layers: Array[Control] = []
@@ -36,7 +37,7 @@ var hand_hover_index: int = -1
 var hand_last_layout_width: float = -1.0
 var hand_last_layout_selected: int = -2
 var hand_last_layout_hover: int = -2
-var lane_cloud_labels: Array[Label] = []
+var lane_cloud_labels: Array[Control] = []
 var ui_anim_time: float = 0.0
 var drag_pending: bool = false
 var drag_pending_index: int = -1
@@ -54,6 +55,15 @@ var custom_art_by_card_id: Dictionary = {}
 var custom_art_by_element: Dictionary = {}
 var scaled_art_by_element: Dictionary = {}
 var scaled_art_by_card_id: Dictionary = {}
+var deco_cloud_tex: Texture2D = null
+var deco_grass_tex: Texture2D = null
+var lane_frame_blue_tex: Texture2D = null
+var lane_frame_red_tex: Texture2D = null
+var icon_hp_tex: Texture2D = null
+var icon_time_tex: Texture2D = null
+var lane_track_tex: Texture2D = null
+var fx_projectile_tex: Texture2D = null
+var fx_hit_tex: Texture2D = null
 const ELEMENT_ICON: Dictionary = {
 	"wood": "🌿",
 	"fire": "🔥",
@@ -70,13 +80,15 @@ func _ready() -> void:
 		return
 	hand_container.resized.connect(_on_hand_container_resized)
 	hand_scroll.resized.connect(_on_hand_container_resized)
+	_load_ui_art_assets()
 	_load_custom_card_art()
 	_init_ai_option()
 	_init_lane_visual_layers()
 	for i in lane_btns.size():
 		lane_btns[i].pressed.connect(_on_lane_pressed.bind(i))
 	discard_btn.pressed.connect(_on_discard_pressed)
-	$UI/Actions/RestartBtn.pressed.connect(_on_restart_pressed)
+	restart_btn.pressed.connect(_on_restart_pressed)
+	restart_btn.custom_minimum_size = Vector2(110, 36)
 	refresh_ui()
 
 func _process(delta: float) -> void:
@@ -89,9 +101,9 @@ func _process(delta: float) -> void:
 	refresh_ui()
 
 func refresh_ui() -> void:
-	my_hp_label.text = "My HP: %d" % GameState.my_hp
-	enemy_hp_label.text = "Enemy HP: %d" % GameState.enemy_hp
-	time_label.text = "Time: %.1fs" % GameState.game_time
+	my_hp_label.text = "            My HP: %d" % GameState.my_hp
+	enemy_hp_label.text = "            Enemy HP: %d" % GameState.enemy_hp
+	time_label.text = "            Time: %.1fs" % GameState.game_time
 	my_res_label.text = "My Res  W %.1f  F %.1f  E %.1f  M %.1f  Wa %.1f" % [
 		GameState.my_resources["wood"], GameState.my_resources["fire"], GameState.my_resources["earth"],
 		GameState.my_resources["metal"], GameState.my_resources["water"]
@@ -281,30 +293,59 @@ func _init_lane_visual_layers() -> void:
 		ground.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ground.z_index = 1
 		btn.add_child(ground)
-		var cloud: Label = Label.new()
-		cloud.text = "☁   ☁"
-		cloud.position = Vector2(10.0, 2.0)
-		cloud.add_theme_font_size_override("font_size", 14)
-		cloud.modulate = Color(1.0, 1.0, 1.0, 0.42)
-		cloud.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		cloud.z_index = 2
-		btn.add_child(cloud)
-		lane_cloud_labels.append(cloud)
-		var grass: Label = Label.new()
-		grass.text = "✿ ✿ ✿"
-		grass.add_theme_font_size_override("font_size", 11)
-		grass.modulate = Color(0.9, 0.97, 0.86, 0.42)
-		grass.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		grass.anchor_left = 0.0
-		grass.anchor_top = 1.0
-		grass.anchor_right = 0.0
-		grass.anchor_bottom = 1.0
-		grass.offset_left = 10.0
-		grass.offset_top = -18.0
-		grass.offset_right = 110.0
-		grass.offset_bottom = -2.0
-		grass.z_index = 2
-		btn.add_child(grass)
+		if deco_cloud_tex != null:
+			var cloud_tex_node: TextureRect = TextureRect.new()
+			cloud_tex_node.texture = deco_cloud_tex
+			cloud_tex_node.position = Vector2(10.0, 2.0)
+			cloud_tex_node.custom_minimum_size = Vector2(86, 24)
+			cloud_tex_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			cloud_tex_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			cloud_tex_node.modulate = Color(1.0, 1.0, 1.0, 0.45)
+			cloud_tex_node.z_index = 2
+			btn.add_child(cloud_tex_node)
+			lane_cloud_labels.append(cloud_tex_node)
+		else:
+			var cloud: Label = Label.new()
+			cloud.text = "☁   ☁"
+			cloud.position = Vector2(10.0, 2.0)
+			cloud.add_theme_font_size_override("font_size", 14)
+			cloud.modulate = Color(1.0, 1.0, 1.0, 0.42)
+			cloud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			cloud.z_index = 2
+			btn.add_child(cloud)
+			lane_cloud_labels.append(cloud)
+		if deco_grass_tex != null:
+			var grass_tex_node: TextureRect = TextureRect.new()
+			grass_tex_node.texture = deco_grass_tex
+			grass_tex_node.anchor_left = 0.0
+			grass_tex_node.anchor_top = 1.0
+			grass_tex_node.anchor_right = 0.0
+			grass_tex_node.anchor_bottom = 1.0
+			grass_tex_node.offset_left = 10.0
+			grass_tex_node.offset_top = -20.0
+			grass_tex_node.offset_right = 118.0
+			grass_tex_node.offset_bottom = -2.0
+			grass_tex_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			grass_tex_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			grass_tex_node.modulate = Color(1.0, 1.0, 1.0, 0.55)
+			grass_tex_node.z_index = 2
+			btn.add_child(grass_tex_node)
+		else:
+			var grass: Label = Label.new()
+			grass.text = "✿ ✿ ✿"
+			grass.add_theme_font_size_override("font_size", 11)
+			grass.modulate = Color(0.9, 0.97, 0.86, 0.42)
+			grass.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			grass.anchor_left = 0.0
+			grass.anchor_top = 1.0
+			grass.anchor_right = 0.0
+			grass.anchor_bottom = 1.0
+			grass.offset_left = 10.0
+			grass.offset_top = -18.0
+			grass.offset_right = 110.0
+			grass.offset_bottom = -2.0
+			grass.z_index = 2
+			btn.add_child(grass)
 		var info_box: VBoxContainer = VBoxContainer.new()
 		info_box.name = "LaneInfo"
 		info_box.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -343,6 +384,23 @@ func _init_lane_visual_layers() -> void:
 		track_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		track_layer.z_index = 4
 		btn.add_child(track_layer)
+		if lane_track_tex != null:
+			var track_deco: TextureRect = TextureRect.new()
+			track_deco.name = "TrackDeco"
+			track_deco.texture = lane_track_tex
+			track_deco.anchor_left = 0.0
+			track_deco.anchor_right = 1.0
+			track_deco.anchor_top = 0.5
+			track_deco.anchor_bottom = 0.5
+			track_deco.offset_left = 10.0
+			track_deco.offset_right = -10.0
+			track_deco.offset_top = -8.0
+			track_deco.offset_bottom = 8.0
+			track_deco.stretch_mode = TextureRect.STRETCH_SCALE
+			track_deco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			track_deco.modulate = Color(1, 1, 1, 0.16)
+			track_deco.z_index = -1
+			track_layer.add_child(track_deco)
 		var projectile_layer: Control = Control.new()
 		projectile_layer.name = "ProjectileLayer"
 		projectile_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -459,6 +517,113 @@ func _load_custom_card_art() -> void:
 	if custom_art_by_card_id.size() > 0:
 		GameState.push_log("Loaded custom card art by id: %d" % custom_art_by_card_id.size())
 
+func _load_ui_art_assets() -> void:
+	var bg_path: String = "res://res/bg_battle_main.png"
+	if FileAccess.file_exists(bg_path):
+		var bg_tex: Texture2D = load(bg_path) as Texture2D
+		if bg_tex != null:
+			var bg_node: TextureRect = get_node_or_null("ArtBgMain") as TextureRect
+			if bg_node == null:
+				bg_node = TextureRect.new()
+				bg_node.name = "ArtBgMain"
+				bg_node.set_anchors_preset(Control.PRESET_FULL_RECT)
+				bg_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				bg_node.z_index = -50
+				add_child(bg_node)
+				move_child(bg_node, 0)
+			bg_node.texture = bg_tex
+			bg_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			bg_node.modulate = Color(1, 1, 1, 0.42)
+	# NOTE: keep gameplay readable first; do not apply panel/lane skins here.
+	deco_cloud_tex = null
+	deco_grass_tex = null
+	lane_frame_blue_tex = null
+	lane_frame_red_tex = null
+	var discard_icon_path: String = "res://res/icon_discard.png"
+	if FileAccess.file_exists(discard_icon_path):
+		var discard_tex_raw: Texture2D = load(discard_icon_path) as Texture2D
+		if discard_tex_raw != null:
+			discard_btn.icon = _make_card_icon_texture(discard_tex_raw, 90)
+			discard_btn.add_theme_constant_override("h_separation", 6)
+			discard_btn.expand_icon = false
+	var hp_icon_path: String = "res://res/icon_hp.png"
+	if FileAccess.file_exists(hp_icon_path):
+		icon_hp_tex = _make_card_icon_texture(load(hp_icon_path) as Texture2D, 72)
+	var time_icon_path: String = "res://res/icon_time.png"
+	if FileAccess.file_exists(time_icon_path):
+		icon_time_tex = _make_card_icon_texture(load(time_icon_path) as Texture2D, 72)
+	if icon_hp_tex != null:
+		_attach_icon_to_label(enemy_hp_label, icon_hp_tex, "IconHpEnemy")
+		_attach_icon_to_label(my_hp_label, icon_hp_tex, "IconHpMy")
+	if icon_time_tex != null:
+		_attach_icon_to_label(time_label, icon_time_tex, "IconTime")
+	lane_track_tex = _load_trimmed_ui_tex("res://res/lane_track_line.png")
+	var fx_proj_raw: Texture2D = _load_trimmed_ui_tex("res://res/fx_projectile_glow.png")
+	if fx_proj_raw != null:
+		fx_projectile_tex = _make_card_icon_texture(fx_proj_raw, 24)
+	else:
+		fx_projectile_tex = null
+	fx_hit_tex = _load_trimmed_ui_tex("res://res/fx_hit_flash.png")
+	_apply_action_button_styles()
+	discard_btn.custom_minimum_size = Vector2(280, 96)
+	discard_btn.clip_text = true
+	selected_label.custom_minimum_size = Vector2(320, 48)
+	selected_label.clip_text = true
+
+func _apply_action_button_styles() -> void:
+	var p_idle: Texture2D = _load_trimmed_ui_tex("res://res/btn_primary_idle.png")
+	var p_hover: Texture2D = _load_trimmed_ui_tex("res://res/btn_primary_hover.png")
+	var p_press: Texture2D = _load_trimmed_ui_tex("res://res/btn_primary_pressed.png")
+	var d_idle: Texture2D = _load_trimmed_ui_tex("res://res/btn_danger_idle.png")
+	if p_idle != null:
+		restart_btn.add_theme_stylebox_override("normal", _make_button_stylebox(p_idle))
+	if p_hover != null:
+		restart_btn.add_theme_stylebox_override("hover", _make_button_stylebox(p_hover))
+	if p_press != null:
+		restart_btn.add_theme_stylebox_override("pressed", _make_button_stylebox(p_press))
+	if d_idle != null:
+		discard_btn.add_theme_stylebox_override("normal", _make_button_stylebox(d_idle))
+	if p_hover != null:
+		discard_btn.add_theme_stylebox_override("hover", _make_button_stylebox(p_hover))
+	if p_press != null:
+		discard_btn.add_theme_stylebox_override("pressed", _make_button_stylebox(p_press))
+
+func _load_trimmed_ui_tex(path: String) -> Texture2D:
+	if not FileAccess.file_exists(path):
+		return null
+	return _make_trimmed_texture(load(path) as Texture2D, 2)
+
+func _make_button_stylebox(tex: Texture2D) -> StyleBoxTexture:
+	var sb: StyleBoxTexture = StyleBoxTexture.new()
+	sb.texture = tex
+	sb.texture_margin_left = 14
+	sb.texture_margin_top = 10
+	sb.texture_margin_right = 14
+	sb.texture_margin_bottom = 10
+	sb.draw_center = true
+	return sb
+
+func _attach_icon_to_label(label: Label, tex: Texture2D, node_name: String) -> void:
+	if label == null or tex == null:
+		return
+	var icon: TextureRect = label.get_node_or_null(node_name) as TextureRect
+	if icon == null:
+		icon = TextureRect.new()
+		icon.name = node_name
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.anchor_left = 0.0
+		icon.anchor_top = 0.5
+		icon.anchor_right = 0.0
+		icon.anchor_bottom = 0.5
+		icon.offset_left = 2
+		icon.offset_top = -36
+		icon.offset_right = 74
+		icon.offset_bottom = 36
+		icon.z_index = 3
+		label.add_child(icon)
+	icon.texture = tex
+
 func _get_card_art(card: Dictionary) -> Texture2D:
 	var cid: String = String(card.get("id", ""))
 	if scaled_art_by_card_id.has(cid):
@@ -475,7 +640,7 @@ func _get_card_art(card: Dictionary) -> Texture2D:
 func _make_card_icon_texture(src: Texture2D, icon_side: int) -> Texture2D:
 	if src == null:
 		return null
-	var img: Image = src.get_image()
+	var img: Image = _trimmed_alpha_image(src, 2)
 	if img == null:
 		return src
 	var w: int = img.get_width()
@@ -523,6 +688,50 @@ func _make_card_icon_texture(src: Texture2D, icon_side: int) -> Texture2D:
 						out.set_pixel(ex, ey, Color(1.0, 0.98, 0.9, c.a * 0.28))
 			out.set_pixel(tx, ty, c)
 	return ImageTexture.create_from_image(out)
+
+func _make_trimmed_texture(src: Texture2D, alpha_padding: int = 2) -> Texture2D:
+	if src == null:
+		return null
+	var img: Image = _trimmed_alpha_image(src, alpha_padding)
+	if img == null:
+		return src
+	return ImageTexture.create_from_image(img)
+
+func _trimmed_alpha_image(src: Texture2D, alpha_padding: int = 2) -> Image:
+	if src == null:
+		return null
+	var img: Image = src.get_image()
+	if img == null:
+		return null
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	if w <= 1 or h <= 1:
+		return img
+	var min_x: int = w
+	var min_y: int = h
+	var max_x: int = -1
+	var max_y: int = -1
+	for y in h:
+		for x in w:
+			if img.get_pixel(x, y).a <= 0.01:
+				continue
+			if x < min_x:
+				min_x = x
+			if y < min_y:
+				min_y = y
+			if x > max_x:
+				max_x = x
+			if y > max_y:
+				max_y = y
+	if max_x < min_x or max_y < min_y:
+		return img
+	min_x = maxi(0, min_x - alpha_padding)
+	min_y = maxi(0, min_y - alpha_padding)
+	max_x = mini(w - 1, max_x + alpha_padding)
+	max_y = mini(h - 1, max_y + alpha_padding)
+	var rw: int = max_x - min_x + 1
+	var rh: int = max_y - min_y + 1
+	return img.get_region(Rect2i(min_x, min_y, rw, rh))
 
 func _slug(text: String) -> String:
 	var s: String = text.strip_edges().to_lower()
@@ -608,7 +817,7 @@ func _on_hand_container_resized() -> void:
 
 func _animate_lane_decor() -> void:
 	for i in lane_cloud_labels.size():
-		var cloud: Label = lane_cloud_labels[i]
+		var cloud: Control = lane_cloud_labels[i]
 		cloud.position.x = 10.0 + sin(ui_anim_time * 0.55 + float(i) * 1.3) * 8.0
 
 func _on_hand_card_gui_input(event: InputEvent, index: int, card_btn: Button) -> void:
@@ -790,13 +999,25 @@ func _render_lane_visual(lane: int) -> void:
 	var float_layer: Control = lane_float_layers[lane]
 	var unit_layer: Control = lane_unit_layers[lane]
 	var vis: Dictionary = GameState.lane_visual(lane)
-	_apply_lane_flash_tint(lane, float(vis.get("flash_my", 0.0)), float(vis.get("flash_enemy", 0.0)))
+	var flash_my: float = float(vis.get("flash_my", 0.0))
+	var flash_enemy: float = float(vis.get("flash_enemy", 0.0))
+	_apply_lane_flash_tint(lane, flash_my, flash_enemy)
 	_update_units(lane, unit_layer, int(vis["my_units"]), int(vis["enemy_units"]))
 	var projectiles: Array = vis["projectiles"]
 	_sync_projectiles(lane, projectile_layer, projectiles)
 	var floats_arr: Array = vis.get("floats", [])
 	for c in float_layer.get_children():
 		c.queue_free()
+	if fx_hit_tex != null:
+		var hit_level: float = maxf(flash_my, flash_enemy)
+		if hit_level > 0.02:
+			var flash_tex_node: TextureRect = TextureRect.new()
+			flash_tex_node.texture = fx_hit_tex
+			flash_tex_node.set_anchors_preset(Control.PRESET_FULL_RECT)
+			flash_tex_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			flash_tex_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			flash_tex_node.modulate = Color(1.0, 0.92, 0.8, clampf(hit_level * 0.35, 0.0, 0.28))
+			float_layer.add_child(flash_tex_node)
 	for i in floats_arr.size():
 		var f: Dictionary = floats_arr[i]
 		var txt: Label = Label.new()
@@ -859,25 +1080,38 @@ func _sync_projectiles(lane: int, layer: Control, projectiles: Array) -> void:
 		if pid < 0:
 			pid = -10000 - i
 		seen[pid] = true
-		var dot: Label = null
+		var dot: Control = null
 		if node_map.has(pid):
-			dot = node_map[pid] as Label
+			dot = node_map[pid] as Control
 		if dot == null:
-			dot = Label.new()
-			var effect: String = String(p.get("effect", "attack"))
-			dot.text = "●" if effect == "attack" else "◆"
-			dot.add_theme_font_size_override("font_size", 14)
-			dot.modulate = Color(0.6, 1.0, 0.6) if bool(p.get("from_my", false)) else Color(1.0, 0.6, 0.6)
-			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			if fx_projectile_tex != null:
+				var proj_tex_node: TextureRect = TextureRect.new()
+				proj_tex_node.texture = fx_projectile_tex
+				proj_tex_node.size = Vector2(22, 22)
+				proj_tex_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				proj_tex_node.modulate = Color(0.6, 1.0, 0.6) if bool(p.get("from_my", false)) else Color(1.0, 0.6, 0.6)
+				proj_tex_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				dot = proj_tex_node
+			else:
+				var proj_label: Label = Label.new()
+				var effect: String = String(p.get("effect", "attack"))
+				proj_label.text = "●" if effect == "attack" else "◆"
+				proj_label.add_theme_font_size_override("font_size", 14)
+				proj_label.modulate = Color(0.6, 1.0, 0.6) if bool(p.get("from_my", false)) else Color(1.0, 0.6, 0.6)
+				proj_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				dot = proj_label
 			dot.scale = Vector2(0.3, 0.3)
 			layer.add_child(dot)
 			var t_spawn: Tween = create_tween()
 			t_spawn.tween_property(dot, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			node_map[pid] = dot
-		var t: float = float(p.get("progress", 0.0))
-		var x: float = 12.0 + w * (t if bool(p.get("from_my", false)) else (1.0 - t))
-		var y: float = 12.0 + h * 0.5
-		dot.position = Vector2(x, y)
+			var t: float = float(p.get("progress", 0.0))
+			var x: float = 12.0 + w * (t if bool(p.get("from_my", false)) else (1.0 - t))
+			var y: float = 12.0 + h * 0.5
+			if dot is TextureRect:
+				dot.position = Vector2(x - 11.0, y - 11.0)
+			else:
+				dot.position = Vector2(x, y)
 	var to_remove: Array = []
 	for k in node_map.keys():
 		if seen.has(k):
@@ -885,7 +1119,7 @@ func _sync_projectiles(lane: int, layer: Control, projectiles: Array) -> void:
 		to_remove.append(k)
 	for i in to_remove.size():
 		var key: Variant = to_remove[i]
-		var old_dot: Label = node_map[key] as Label
+		var old_dot: Control = node_map[key] as Control
 		old_dot.queue_free()
 		node_map.erase(key)
 	lane_projectile_nodes[lane] = node_map
